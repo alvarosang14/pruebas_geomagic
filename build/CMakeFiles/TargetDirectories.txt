@@ -1,0 +1,7 @@
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/CMakeFiles/test.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/CMakeFiles/edit_cache.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/CMakeFiles/rebuild_cache.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/src/CMakeFiles/prueba_geomagic.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/src/CMakeFiles/test.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/src/CMakeFiles/edit_cache.dir
+/home/teo/PhantomOmni/src/pruebas_geomagic/build/src/CMakeFiles/rebuild_cache.dir
