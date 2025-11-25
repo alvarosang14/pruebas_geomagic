@@ -1,1 +1,1 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/prueba_geomagic.dir/main.cpp.o -o prueba_geomagic  -Wl,-rpath,/usr/local/lib -lYARP::YARP_os, /usr/local/lib/libYARP_dev.so.3.12.1 /usr/local/lib/libYARP_math.so.3.12.1 /usr/local/lib/libYARP_sig.so.3.12.1 /usr/local/lib/libYARP_os.so.3.12.1 
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/prueba_geomagic.dir/main.cpp.o -o prueba_geomagic  -Wl,-rpath,/usr/local/lib /usr/local/lib/libYARP_init.so.3.12.0 /usr/local/lib/libYARP_dev.so.3.12.0 /usr/local/lib/libYARP_math.so.3.12.0 /usr/local/lib/libYARP_sig.so.3.12.0 /usr/local/lib/libYARP_os.so.3.12.0 

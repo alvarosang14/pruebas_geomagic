@@ -2,68 +2,58 @@ cmake_minimum_required(VERSION 3.19...3.28)
 
 project(prueba_geomagic LANGUAGES CXX)
 
-# Let the user specify a configuration (only single-config generators).
 if(NOT CMAKE_CONFIGURATION_TYPES)
-    # Possible values.
     set(_configurations Debug Release MinSizeRel RelWithDebInfo)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${_configurations})
-
+    
     foreach(_conf ${_configurations})
         set(_conf_string "${_conf_string} ${_conf}")
     endforeach()
-
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY HELPSTRING
                  "Choose the type of build, options are:${_conf_string}")
-
+    
+    # Establece Release por defecto
     if(NOT CMAKE_BUILD_TYPE)
-        # Encourage the user to specify build type.
         message(STATUS "Setting build type to 'Release' as none was specified.")
         set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE Release)
     endif()
 endif()
 
-# Pick up our CMake modules.
+# Busca las dependencias necesarias
+find_package(YCM 0.11 REQUIRED)  # Yet Another CMake Module - herramientas auxiliares de CMake
+find_package(YARP 3.12 REQUIRED COMPONENTS os dev sig)  # Framework de robótica YARP
 
-# Hard dependencies.
-find_package(YCM 0.11 REQUIRED)
-find_package(YARP 3.12 REQUIRED COMPONENTS os dev sig)
+# Añade el subdirectorio con el código fuente
+add_subdirectory(src)
 
-
-# Always build YARP devices as MODULE libraries.
-#set(YARP_FORCE_DYNAMIC_PLUGINS TRUE CACHE INTERNAL "Force dynamic plugins")
-
-# Configure installation paths for YARP resources.
+# Configurar rutas de instalación para recursos YARP
 #yarp_configure_external_installation(roboticslab-yarp-devices WITH_PLUGINS)
 
-# Standard installation directories.
+# Directorios de instalación estándar (bin/, lib/, include/, etc.)
 #include(GNUInstallDirs)
 
-# Control where libraries and executables are placed during the build.
+# Controlar ubicación de ejecutables y bibliotecas durante la compilación
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})
 #set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 #set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 
-# Create targets if specific requirements are satisfied.
-include(CMakeDependentOption)
+# Crear targets condicionales
+#include(CMakeDependentOption)
 
-# Acknowledge this is a CTest-friendly project.
-enable_testing()
+# Habilitar soporte para testing con CTest
+#enable_testing()
 
-# Add main contents.
-add_subdirectory(src)
-
-# Store the package in the user registry.
+# Registrar el paquete en el registro de usuario de CMake
 #set(CMAKE_EXPORT_PACKAGE_REGISTRY ON)
 
-# Create and install config files.
+# Instalar archivos de configuración del paquete (para find_package)
 #include(InstallBasicPackageFiles)
-
 #install_basic_package_files(ROBOTICSLAB_YARP_DEVICES
 #                            VERSION 0.1.0
 #                            COMPATIBILITY AnyNewerVersion
 #                            NO_SET_AND_CHECK_MACRO
 #                            NO_CHECK_REQUIRED_COMPONENTS_MACRO
 #                            NAMESPACE ROBOTICSLAB::)
-#
-# Configure and create uninstall target.
+
+# Crear target de desinstalación
 #include(AddUninstallTarget)

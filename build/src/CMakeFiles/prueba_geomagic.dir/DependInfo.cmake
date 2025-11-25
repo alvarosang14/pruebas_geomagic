@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/teo/PhantomOmni/src/pruebas_geomagic/src/main.cpp" "src/CMakeFiles/prueba_geomagic.dir/main.cpp.o" "gcc" "src/CMakeFiles/prueba_geomagic.dir/main.cpp.o.d"
+  "/home/asantos/repos/pruebas_geomagic/src/main.cpp" "src/CMakeFiles/prueba_geomagic.dir/main.cpp.o" "gcc" "src/CMakeFiles/prueba_geomagic.dir/main.cpp.o.d"
   )
 
 # Targets to which this target links.

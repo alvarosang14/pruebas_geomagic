@@ -1,4 +1,4 @@
-# Install script for directory: /home/teo/PhantomOmni/src/pruebas_geomagic/src
+# Install script for directory: /home/asantos/repos/pruebas_geomagic/src
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
