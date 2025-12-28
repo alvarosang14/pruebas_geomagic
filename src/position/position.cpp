@@ -1,4 +1,4 @@
-#include "position.hpp"
+#include "position/position.hpp"
 
 
 bool Prueba::configure(yarp::os::ResourceFinder& rf) {
