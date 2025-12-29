@@ -1,7 +1,7 @@
 #include "position/position.hpp"
 
 
-bool Prueba::configure(yarp::os::ResourceFinder& rf) {
+bool ApiYarp::configure(yarp::os::ResourceFinder& rf) {
     std::string device = rf.check("device", yarp::os::Value("hapticdevice")).asString();
 
 
@@ -25,7 +25,7 @@ bool Prueba::configure(yarp::os::ResourceFinder& rf) {
     return true;
 }
 
-bool Prueba::str_position()  {
+bool ApiYarp::str_position()  {
     yarp::sig::Vector pos(3);
 
     igeo->getPosition(pos);
@@ -34,7 +34,7 @@ bool Prueba::str_position()  {
     return true;
 }
 
-bool Prueba::updateModule() {
+bool ApiYarp::updateModule() {
     // Aquí va la lógica que se ejecuta periódicamente
     // Por ejemplo, leer la posición del haptic device
 
@@ -46,12 +46,12 @@ bool Prueba::updateModule() {
     return true;  // devuelve false para detener el módulo
 }
 
-double Prueba::getPeriod() {
+double ApiYarp::getPeriod() {
     return 0.1;  // se ejecuta cada 0.1 segundos (10 Hz)
 }
 
 // Cierra el PolyDriver
-bool Prueba::close() {
+bool ApiYarp::close() {
     drvControlSource.close();
     return true;
 }

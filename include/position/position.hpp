@@ -12,13 +12,13 @@
 #include <yarp/sig/Vector.h>
 
 
-class Prueba : public yarp::os::RFModule {
+class ApiYarp : public yarp::os::RFModule {
 private:
     yarp::dev::PolyDriver drvControlSource;
     yarp::dev::IHapticDevice* igeo{nullptr};
 
 public:
-    Prueba() {}
+    ApiYarp() {}
 
     bool configure(yarp::os::ResourceFinder& rf);
     bool str_position();

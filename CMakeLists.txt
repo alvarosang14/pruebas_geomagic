@@ -26,6 +26,7 @@ endif()
 
 add_executable(prueba_geomagic 
     src/main.cpp 
+    src/engine/engine.cpp
     src/position/position.cpp
     src/qt/mainwindow.cpp
     include/qt/mainwindow.h
