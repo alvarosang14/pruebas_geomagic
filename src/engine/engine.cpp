@@ -1,12 +1,25 @@
 #include "engine/engine.h"
 
+#include <rclcpp/rclcpp.hpp>
+
 bool Engine::run(int argc, char *argv[]) {
     std::thread apiThread(&Engine::runApi, this, argc, argv);
     std::thread qtThread(&Engine::runQt, this, argc, argv);
+    std::thread ros2Thread(&Engine::runRos2, this, argc, argv);
 
     qtThread.join();
     api.stopModule();
+    ros2Thread.join();
 
+    return true;
+}
+
+bool Engine::runRos2(int argc, char *argv[]) {
+    rclcpp::init(argc, argv);
+    auto node = std::make_shared<rclcpp::Node>("engine_node");
+
+    rclcpp::spin(node);
+    rclcpp::shutdown();
     return true;
 }
 

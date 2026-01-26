@@ -12,6 +12,7 @@ class Engine {
 private:
     bool runApi(int argc, char *argv[]);
     bool runQt(int argc, char *argv[]);
+    bool runRos2(int argc, char *argv[]);
 
     ApiYarp api;
 
