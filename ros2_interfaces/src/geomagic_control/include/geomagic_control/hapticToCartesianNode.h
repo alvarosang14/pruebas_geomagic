@@ -5,6 +5,12 @@
 #include "geometry_msgs/msg/pose.hpp"
 #include "std_msgs/msg/string.hpp"
 
+
+using SetParameters = rcl_interfaces::srv::SetParameters;
+using Parameter = rcl_interfaces::msg::Parameter;
+using ParameterValue = rcl_interfaces::msg::ParameterValue;
+using SetParametersResult = rcl_interfaces::msg::SetParametersResult;
+
 class HapticToCartesianNode : public rclcpp::Node
 {
 public:
@@ -16,10 +22,12 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cartesian_cmd_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_mode_pub;
     rclcpp::TimerBase::SharedPtr m_mode_timer;
+    rclcpp::Client<SetParameters>::SharedPtr client_param_;
+
     int m_mode_count = 0;
 
     void publishCartesianCreate();
-    void setPoseMode();
+    bool setPoseMode();
     void hapticSucribeCreate();
     void hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
 };
