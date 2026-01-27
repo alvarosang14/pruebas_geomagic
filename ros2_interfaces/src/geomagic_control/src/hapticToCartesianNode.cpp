@@ -1,7 +1,24 @@
 // haptic_to_cartesian_node.cpp
 #include "geomagic_control/hapticToCartesianNode.h"
 
+
 const std::string node_name = "haptic_to_cartesian_node";
+
+namespace {
+    inline void fromMsg(const geometry_msgs::msg::Pose& in, KDL::Frame& out) {
+        out.p = KDL::Vector(in.position.x, in.position.y, in.position.z);
+        out.M = KDL::Rotation::Quaternion(in.orientation.x, in.orientation.y,
+                                          in.orientation.z, in.orientation.w);
+    }
+
+    inline void toMsg(const KDL::Frame& in, geometry_msgs::msg::Pose& out) {
+        out.position.x = in.p.x();
+        out.position.y = in.p.y();
+        out.position.z = in.p.z();
+
+        in.M.GetQuaternion(out.orientation.x, out.orientation.y, out.orientation.z, out.orientation.w);
+    }
+}
 
 HapticToCartesianNode::HapticToCartesianNode() : Node(node_name) {
     publishCartesianCreate();
@@ -80,12 +97,19 @@ bool HapticToCartesianNode::setPoseMode() {
 
 void HapticToCartesianNode::hapticSucribeCreate() {
     // Subscriber
-    static std::string basePath = std::string("/") + "haptic_device_ros2";
+    static std::string basePathPhantom = std::string("/") + "haptic_device_ros2";
 
-    m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::Pose>(
-        basePath + "/state/pose",
+    m_haptic_posePhantom_sub = this->create_subscription<geometry_msgs::msg::Pose>(
+        basePathPhantom + "/state/pose",
         10,
         std::bind(&HapticToCartesianNode::hapticPoseCallback, this, std::placeholders::_1)
+    );
+
+    static std::string basePathTeo = std::string("/") + "cartesian_control_server_ros2";
+    m_haptic_poseTeoRightArm_sub = this->create_subscription<geometry_msgs::msg::Pose>(
+        basePathTeo + "/state/pose",
+        10,
+        std::bind(&HapticToCartesianNode::teoPoseCallback, this, std::placeholders::_1)
     );
 
 }
@@ -95,6 +119,12 @@ void HapticToCartesianNode::hapticPoseCallback(const geometry_msgs::msg::Pose::S
     RCLCPP_DEBUG(this->get_logger(),
                 "Received haptic pose: [%.3f, %.3f, %.3f]",
                 msg->position.x, msg->position.y, msg->position.z);
+
+    hapticInitialPose(msg);
+
+    fromMsg(*msg, current_haptic_pose);
+
+    calculateDiferentialPose();
 
     // Crear comando cartesiano con la misma pose
     geometry_msgs::msg::Pose cartesian_cmd = *msg;
@@ -107,4 +137,43 @@ void HapticToCartesianNode::hapticPoseCallback(const geometry_msgs::msg::Pose::S
                 cartesian_cmd.position.x,
                 cartesian_cmd.position.y,
                 cartesian_cmd.position.z);
+}
+
+void HapticToCartesianNode::calculateDiferentialPose() {
+    // Al invertir se cancel base con base y me queda una matriz que relaciona el el lapiz incial con el nuevo
+    KDL::Frame delta_movement = initial_haptic_pose.Inverse() * current_haptic_pose;
+
+    // ahora aplico esa traslacion a teo
+    KDL::Frame target_teo_pose = initial_teo_pose * delta_movement;
+
+    geometry_msgs::msg::Pose cartesian_cmd;
+    toMsg(target_teo_pose, cartesian_cmd);
+
+    m_cartesian_cmd_pub->publish(cartesian_cmd);
+}
+
+void HapticToCartesianNode::teoPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    // Recibir pose del dispositivo háptico
+    RCLCPP_DEBUG(this->get_logger(),
+                "Received teo Right Arm pose: [%.3f, %.3f, %.3f]",
+                msg->position.x, msg->position.y, msg->position.z);
+
+    teoInitialPose(msg);
+}
+
+void HapticToCartesianNode::hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    if (!firstHapticOutput) {
+        fromMsg(*msg, initial_haptic_pose);
+
+        firstHapticOutput = true;
+        RCLCPP_INFO(get_logger(), "Initial haptic pose correctly set.");
+    }
+}
+
+void HapticToCartesianNode::teoInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    if (!firstTeoOutput) {
+        fromMsg(*msg, initial_teo_pose);
+        firstTeoOutput = true;
+        RCLCPP_INFO(get_logger(), "Initial teo pose correctly set.");
+    }
 }

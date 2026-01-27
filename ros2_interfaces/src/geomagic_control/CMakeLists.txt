@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(orocos_kdl REQUIRED)
 
 add_executable(haptic_to_cartesian_node
   src/hapticToCartesianNode.cpp
@@ -18,6 +19,7 @@ add_executable(haptic_to_cartesian_node
 
 target_include_directories(haptic_to_cartesian_node PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${orocos_kdl_INCLUDE_DIRS}
 )
 
 # Link con dependencias de ROS2
@@ -25,6 +27,7 @@ ament_target_dependencies(haptic_to_cartesian_node
   rclcpp
   geometry_msgs
   std_msgs
+  orocos_kdl
 )
 
 install(TARGETS

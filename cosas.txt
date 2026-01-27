@@ -1,0 +1,2 @@
+yarp rpc /teoSim/rightArm/rpc:i
+    set pos 3 -90
