@@ -4,7 +4,7 @@
 #include <kdl/frames.hpp>
 
 #include "rclcpp/rclcpp.hpp"
-#include "geometry_msgs/msg/pose.hpp"
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "std_msgs/msg/string.hpp"
 
 using SetParameters = rcl_interfaces::srv::SetParameters;
@@ -20,7 +20,7 @@ public:
 
 private:
     rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_posePhantom_sub;
-    rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_poseTeoRightArm_sub;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_haptic_poseTeoRightArm_sub;
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cartesian_cmd_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_mode_pub;
     rclcpp::TimerBase::SharedPtr m_mode_timer;
@@ -41,10 +41,10 @@ private:
     void hapticSucribeCreate();
 
     void hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
-    void teoPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
+    void teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
     void hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
-    void teoInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
+    void teoInitialPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
     void calculateDiferentialPose();
 

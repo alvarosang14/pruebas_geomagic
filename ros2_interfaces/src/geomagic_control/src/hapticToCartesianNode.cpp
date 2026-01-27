@@ -11,6 +11,12 @@ namespace {
                                           in.orientation.z, in.orientation.w);
     }
 
+    inline void fromMsg(const geometry_msgs::msg::PoseStamped& in, KDL::Frame& out) {
+        out.p = KDL::Vector(in.pose.position.x, in.pose.position.y, in.pose.position.z);
+        out.M = KDL::Rotation::Quaternion(in.pose.orientation.x, in.pose.orientation.y,
+                                          in.pose.orientation.z, in.pose.orientation.w);
+    }
+
     inline void toMsg(const KDL::Frame& in, geometry_msgs::msg::Pose& out) {
         out.position.x = in.p.x();
         out.position.y = in.p.y();
@@ -106,7 +112,7 @@ void HapticToCartesianNode::hapticSucribeCreate() {
     );
 
     static std::string basePathTeo = std::string("/") + "cartesian_control_server_ros2";
-    m_haptic_poseTeoRightArm_sub = this->create_subscription<geometry_msgs::msg::Pose>(
+    m_haptic_poseTeoRightArm_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
         basePathTeo + "/state/pose",
         10,
         std::bind(&HapticToCartesianNode::teoPoseCallback, this, std::placeholders::_1)
@@ -115,28 +121,30 @@ void HapticToCartesianNode::hapticSucribeCreate() {
 }
 
 void HapticToCartesianNode::hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
-    // Recibir pose del dispositivo háptico
-    RCLCPP_DEBUG(this->get_logger(),
-                "Received haptic pose: [%.3f, %.3f, %.3f]",
-                msg->position.x, msg->position.y, msg->position.z);
-
     hapticInitialPose(msg);
 
-    fromMsg(*msg, current_haptic_pose);
+    if (firstHapticOutput && firstTeoOutput) {
+        // Recibir pose del dispositivo háptico
+        RCLCPP_DEBUG(this->get_logger(),
+                    "Received haptic pose: [%.3f, %.3f, %.3f]",
+                    msg->position.x, msg->position.y, msg->position.z);
 
-    calculateDiferentialPose();
+        fromMsg(*msg, current_haptic_pose);
 
-    // Crear comando cartesiano con la misma pose
-    geometry_msgs::msg::Pose cartesian_cmd = *msg;
+        calculateDiferentialPose();
 
-    // Publicar comando al controlador cartesiano
-    m_cartesian_cmd_pub->publish(cartesian_cmd);
+        // Crear comando cartesiano con la misma pose
+        geometry_msgs::msg::Pose cartesian_cmd = *msg;
 
-    RCLCPP_DEBUG(this->get_logger(),
-                "Published cartesian command: [%.3f, %.3f, %.3f]",
-                cartesian_cmd.position.x,
-                cartesian_cmd.position.y,
-                cartesian_cmd.position.z);
+        // Publicar comando al controlador cartesiano
+        m_cartesian_cmd_pub->publish(cartesian_cmd);
+
+        RCLCPP_DEBUG(this->get_logger(),
+                    "Published cartesian command: [%.3f, %.3f, %.3f]",
+                    cartesian_cmd.position.x,
+                    cartesian_cmd.position.y,
+                    cartesian_cmd.position.z);
+    }
 }
 
 void HapticToCartesianNode::calculateDiferentialPose() {
@@ -152,11 +160,11 @@ void HapticToCartesianNode::calculateDiferentialPose() {
     m_cartesian_cmd_pub->publish(cartesian_cmd);
 }
 
-void HapticToCartesianNode::teoPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
+void HapticToCartesianNode::teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
     // Recibir pose del dispositivo háptico
     RCLCPP_DEBUG(this->get_logger(),
                 "Received teo Right Arm pose: [%.3f, %.3f, %.3f]",
-                msg->position.x, msg->position.y, msg->position.z);
+                msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
 
     teoInitialPose(msg);
 }
@@ -170,7 +178,7 @@ void HapticToCartesianNode::hapticInitialPose(const geometry_msgs::msg::Pose::Sh
     }
 }
 
-void HapticToCartesianNode::teoInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
+void HapticToCartesianNode::teoInitialPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
     if (!firstTeoOutput) {
         fromMsg(*msg, initial_teo_pose);
         firstTeoOutput = true;
