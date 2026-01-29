@@ -21,20 +21,17 @@ public:
 private:
     rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_posePhantom_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_haptic_poseTeoRightArm_sub;
+
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cartesian_cmd_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_mode_pub;
-    rclcpp::TimerBase::SharedPtr m_mode_timer;
+
     rclcpp::Client<SetParameters>::SharedPtr client_param_;
 
     KDL::Frame initial_haptic_pose;
     KDL::Frame initial_teo_pose;
 
-    KDL::Frame current_haptic_pose;
-
     bool firstHapticOutput {false};
     bool firstTeoOutput {false};
-
-    int m_mode_count = 0;
 
     void publishCartesianCreate();
     bool setPoseMode();
@@ -43,10 +40,11 @@ private:
     void hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
     void teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
+    void comprobateIntialPose(const geometry_msgs::msg::Pose::SharedPtr msg);    
+    geometry_msgs::msg::Pose calculateDiferentialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
+
     void hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
     void teoInitialPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-
-    void calculateDiferentialPose();
 
 };
 
