@@ -153,17 +153,22 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
     KDL::Frame current_haptic_pose;
     fromMsg(*msg, current_haptic_pose);
 
-    // Al invertir se cancel base con base y me queda una matriz que relaciona el el lapiz incial con el nuevo
-    KDL::Frame delta_movement = initial_haptic_pose.Inverse() * current_haptic_pose;
+    KDL::Frame delta = initial_haptic_pose.Inverse() * current_haptic_pose;
 
-    // ahora aplico esa traslacion a teo
-    KDL::Frame target_teo_pose = initial_teo_pose * delta_movement;
+    //solo traslación
+    delta.M = KDL::Rotation::Identity();
 
-    geometry_msgs::msg::Pose cartesian_cmd;
-    toMsg(target_teo_pose, cartesian_cmd);
+    // escalado
+    double scale = 0.2;
+    delta.p = delta.p * scale;
 
-    return cartesian_cmd;
+    KDL::Frame target = initial_teo_pose * delta;
+
+    geometry_msgs::msg::Pose out;
+    toMsg(target, out);
+    return out;
 }
+
 
 // ------------------------------ Initial Pose Setters ------------------------------
 void HapticToCartesianNode::hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
