@@ -159,7 +159,7 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
     delta.M = KDL::Rotation::Identity();
 
     // escalado
-    double scale = 0.2;
+    double scale = 0.15;
     delta.p = delta.p * scale;
 
     KDL::Frame target = initial_teo_pose * delta;

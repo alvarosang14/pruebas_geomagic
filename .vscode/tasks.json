@@ -1,0 +1,35 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Colcon build",
+            "type": "shell",
+            "command": "colcon build",
+            "options": {
+                "cwd": "${workspaceFolder}/ros2_interfaces",
+                "shell": {
+                    "executable": "/bin/zsh",
+                    "args": ["-l", "-c"]
+                }
+            },
+            "group": {
+                "kind": "build"
+            }
+        },
+        {
+            "label": "Colcon build Debug",
+            "type": "shell",
+            "command": "colcon build --cmake-args -DCMAKE_BUILD_TYPE=Debug",
+            "options": {
+                "cwd": "${workspaceFolder}/ros2_interfaces",
+                "shell": {
+                    "executable": "/bin/zsh",
+                    "args": ["-l", "-c"]
+                }
+            },
+            "group": {
+                "kind": "build"
+            }
+        }
+    ]
+}
