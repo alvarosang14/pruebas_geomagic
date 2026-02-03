@@ -171,7 +171,6 @@ void HapticToCartesianNode::teoPoseCallback(const geometry_msgs::msg::PoseStampe
     RCLCPP_INFO(this->get_logger(),
                 "Received teo Right Arm pose: [%.3f, %.3f, %.3f]",
                 msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
-
 }
 
 // ------------------------------ Helpers ------------------------------
@@ -202,12 +201,10 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
     //solo traslación
     H_sensor_initial_current.M = KDL::Rotation::Identity();
 
-    // // escalado
-    // double scale = 0.15;
-    // H_sensor_initial_current.p = H_sensor_initial_current.p * scale;
-
+    // Solo rotacion
     KDL::Frame Rot_0_N_sensor_initial = H_0_N_sensor_initial;
     Rot_0_N_sensor_initial.p = KDL::Vector::Zero();
+    // H_N_robot_0_sensor ya nos hemos asegurado que es solo rotacion
 
     // transformamos la traslacion con respecto la base del sensor
     // tranformamos el resultado a los mismos ejes de teo
