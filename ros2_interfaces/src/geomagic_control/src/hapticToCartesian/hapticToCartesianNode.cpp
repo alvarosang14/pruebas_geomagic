@@ -206,10 +206,14 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
     Rot_0_N_sensor_initial.p = KDL::Vector::Zero();
     // H_N_robot_0_sensor ya nos hemos asegurado que es solo rotacion
 
+    auto p = H_0_N_robot_initial * (H_N_robot_0_sensor * (Rot_0_N_sensor_initial * H_sensor_initial_current.p));
+
     // transformamos la traslacion con respecto la base del sensor
     // tranformamos el resultado a los mismos ejes de teo
     // transformamos el resultado con la base de teo
-    KDL::Frame H_0_N_robot = H_0_N_robot_initial * H_N_robot_0_sensor * Rot_0_N_sensor_initial * H_sensor_initial_current;
+    // KDL::Frame H_0_N_robot = H_0_N_robot_initial * H_N_robot_0_sensor * Rot_0_N_sensor_initial * H_sensor_initial_current;
+    KDL::Frame H_0_N_robot = H_0_N_robot_initial;
+    H_0_N_robot.p = p;
 
     geometry_msgs::msg::Pose out;
     toMsg(H_0_N_robot, out);
