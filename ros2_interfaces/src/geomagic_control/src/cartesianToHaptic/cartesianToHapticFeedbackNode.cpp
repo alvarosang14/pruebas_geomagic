@@ -1,4 +1,4 @@
-#include "geomagic_control/cartesianToHapticFeedbackNode.h"
+#include "geomagic_control/cartesianToHaptic/cartesianToHapticFeedbackNode.h"
 
 namespace {
     inline void fromMsg(const geometry_msgs::msg::PoseStamped& in, KDL::Frame& out) {
@@ -37,10 +37,10 @@ void CartesianToHapticFeedbackNode::publishCartesianCreate() {
 }
 
 bool CartesianToHapticFeedbackNode::setFeedbackMode() {
-    client_set_feedback_mode_ = this->create_client<yarp_control_msgs::srv::SetFeedbackMode>("set_feedback_mode");
+    client_set_feedback_mode_ = this->create_client<std_srvs::srv::SetBool>("set_feedback_mode");
 
-    auto request = std::make_shared<yarp_control_msgs::srv::SetFeedbackMode::Request>();
-    request->cartesian_mode = false;  // joint torque feedback mode
+    auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
+    request->data = false;  // joint torque feedback mode
 
     while (!client_set_feedback_mode_->wait_for_service(std::chrono::seconds(1))) {
         if (!rclcpp::ok()) {
@@ -73,19 +73,19 @@ void CartesianToHapticFeedbackNode::hapticSubscribeCreate() {
 void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
     fromMsg(*msg, current_teo_pose);
     // La norma es distancia y al dividir por la distancia (normalizar) obtenemos la direccion
-    
+
     // vector ditnacia de la pose y el circulo
     KDL::Vector diff = current_teo_pose.p - wall_center_;
     // Distancia euclidia
     double distance = diff.Norm();
-        
+
     if (distance > wall_radius_) {
         publishHapticFeedback(KDL::Vector(0, 0, 0));
         return;
     }
 
     double penetration = wall_radius_ - distance;
-    
+
     if (penetration > 0) {
         // Normalizar: diff es direccion y distancia y queremos solo direccion
         KDL::Vector force_direction = diff / distance;
@@ -93,7 +93,7 @@ void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::Po
         double force_magnitude = std::min(force_gain_ * penetration, max_force_);
         // Fuerza a aplicar en esa direccion
         KDL::Vector force = force_direction * force_magnitude;
-        
+
         publishHapticFeedback(force);
     }
 }
@@ -101,10 +101,17 @@ void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::Po
 void CartesianToHapticFeedbackNode::publishHapticFeedback(const KDL::Vector& force) {
     auto feedback_msg = sensor_msgs::msg::JointState();
     toMsg(KDL::Frame(force), feedback_msg);
-    
+
     m_haptic_feedback_pub->publish(feedback_msg);
 
     RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 500,
                             "Collision! Force: [%.2f, %.2f, %.2f] N",
                             force.x(), force.y(), force.z());
+}
+
+int main(int argc, char * argv[]) {
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<CartesianToHapticFeedbackNode>());
+  rclcpp::shutdown();
+  return 0;
 }

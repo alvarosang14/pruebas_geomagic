@@ -27,20 +27,22 @@ private:
 
     rclcpp::Client<SetParameters>::SharedPtr client_param_;
 
-    KDL::Frame initial_haptic_pose;
-    KDL::Frame initial_teo_pose;
+    KDL::Frame H_N_robot_0_sensor;
+    KDL::Frame H_0_N_sensor_initial;
+    KDL::Frame H_0_N_robot_initial;
 
     bool firstHapticOutput {false};
     bool firstTeoOutput {false};
 
     void publishCartesianCreate();
     bool setPoseMode();
+    void setParameters();
     void hapticSucribeCreate();
 
     void hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
     void teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
 
-    void comprobateIntialPose(const geometry_msgs::msg::Pose::SharedPtr msg);    
+    void comprobateIntialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
     geometry_msgs::msg::Pose calculateDiferentialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
 
     void hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
