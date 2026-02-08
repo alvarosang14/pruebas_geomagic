@@ -25,35 +25,6 @@ def from_msg_pose(msg_pose, kdl_frame):
         msg_pose.orientation.w
     )
 
-
-def from_msg_pose_stamped(msg_pose_stamped, kdl_frame):
-    """Convierte geometry_msgs/PoseStamped a KDL.Frame"""
-    kdl_frame.p = PyKDL.Vector(
-        msg_pose_stamped.pose.position.x,
-        msg_pose_stamped.pose.position.y,
-        msg_pose_stamped.pose.position.z
-    )
-    kdl_frame.M = PyKDL.Rotation.Quaternion(
-        msg_pose_stamped.pose.orientation.x,
-        msg_pose_stamped.pose.orientation.y,
-        msg_pose_stamped.pose.orientation.z,
-        msg_pose_stamped.pose.orientation.w
-    )
-
-
-def to_msg(kdl_frame, msg_pose):
-    """Convierte KDL.Frame a geometry_msgs/Pose"""
-    msg_pose.position.x = kdl_frame.p.x()
-    msg_pose.position.y = kdl_frame.p.y()
-    msg_pose.position.z = kdl_frame.p.z()
-    
-    # GetQuaternion devuelve los valores
-    qx, qy, qz, qw = kdl_frame.M.GetQuaternion()
-    msg_pose.orientation.x = qx
-    msg_pose.orientation.y = qy
-    msg_pose.orientation.z = qz
-    msg_pose.orientation.w = qw
-
 NODE = 'haptic_to_cartesian'
 class HapticToCartesian(Node):
 
@@ -67,7 +38,6 @@ class HapticToCartesian(Node):
         self.H_N_robot_0_sensor = PyKDL.Frame()
 
         self.abb_manager = None
-        self.running = True
 
         self.set_parameters()
         self.abb_manager_create()
@@ -81,12 +51,14 @@ class HapticToCartesian(Node):
     def abb_manager_create(self):
         self.abb_manager = EGM()
 
-        while self.running:
+        count = 0
+        while count < 10:
             success, state = self.abb_manager.receive_from_robot()
             if not success: 
+                count += 1
                 continue
             self.cartesian_initial_pose(state)
-            self.running = False
+            break
 
         self.get_logger().info('ABB EGM Manager created')
     
@@ -142,7 +114,7 @@ class HapticToCartesian(Node):
         self.comprobate_initialPose(msg)
 
     def comprobate_initialPose(self, msg):
-        if (not self.first_haptic_output) and (not self.first_teo_output):
+        if (not self.first_haptic_output) or (not self.first_teo_output):
             self.get_logger().warn(
                 'Not received initial pose of Haptic %d and Teo %d', 
                 self.first_haptic_output, self.first_teo_output
@@ -154,9 +126,9 @@ class HapticToCartesian(Node):
 
         self.get_logger().info(
             'Published cartesian command: [%.3f, %.3f, %.3f]',
-            cartesian_cmd.position.x,
-            cartesian_cmd.position.y,
-            cartesian_cmd.position.z
+            cartesian_cmd.p.x(),
+            cartesian_cmd.p.y(),
+            cartesian_cmd.p.z()
         )
     
     def calculate_diferential_pose(self, msg):
@@ -169,7 +141,7 @@ class HapticToCartesian(Node):
         H_sensor_initial_current.M = PyKDL.Rotation.Identity()
 
         # Solo rotacion
-        Rot_0_N_sensor_initial = self.H_0_N_sensor_initial
+        Rot_0_N_sensor_initial = PyKDL.Frame(self.H_0_N_sensor_initial)
         Rot_0_N_sensor_initial.p = PyKDL.Vector.Zero()
         # H_N_robot_0_sensor ya nos hemos asegurado que es solo rotacion
 
@@ -179,12 +151,10 @@ class HapticToCartesian(Node):
         # tranformamos el resultado a los mismos ejes de teo
         # transformamos el resultado con la base de teo
         # KDL::Frame H_0_N_robot = H_0_N_robot_initial * H_N_robot_0_sensor * Rot_0_N_sensor_initial * H_sensor_initial_current;
-        H_0_N_robot = self.H_0_N_robot_initial
+        H_0_N_robot = PyKDL.Frame(self.H_0_N_robot_initial)
         H_0_N_robot.p = p
 
-        out = Pose()
-        to_msg(H_0_N_robot, out)
-        return out
+        return H_0_N_robot
 
     # -------------------------------------------------------------------------------------------
     def haptic_initial_pose(self, msg):
@@ -196,18 +166,31 @@ class HapticToCartesian(Node):
     def cartesian_initial_pose(self, state):
         if not self.first_teo_output:
             self.first_teo_output = True
-            self.H_0_N_robot_initial.p = [state.cartesian.pos.x, state.cartesian.pos.y, state.cartesian.pos.z]
-            self.H_0_N_robot_initial.M = [state.cartesian.orient.u0, state.cartesian.orient.u1, state.cartesian.orient.u2, state.cartesian.orient.u3]
+            self.H_0_N_robot_initial.p = PyKDL.Vector(
+                state.cartesian.pos.x,
+                state.cartesian.pos.y,
+                state.cartesian.pos.z
+            )
+            self.H_0_N_robot_initial.M = PyKDL.Rotation.Quaternion(
+                state.cartesian.orient.u1,
+                state.cartesian.orient.u2,
+                state.cartesian.orient.u3,
+                state.cartesian.orient.u0
+            )
+
             self.get_logger().info('Initial cartesian pose correctly set.')
 
     # -------------------------------------------------------------------------------------------
     def run_egm_loop(self, cartesian_cmd):
-        # Interpolación de Posición
-        self.current_send_pos[0] = self.interpolate(self.current_send_pos[0], self.target_pos[0], SMOOTH_FACTOR)
-        self.current_send_pos[1] = self.interpolate(self.current_send_pos[1], self.target_pos[1], SMOOTH_FACTOR)
-        self.current_send_pos[2] = self.interpolate(self.current_send_pos[2], self.target_pos[2], SMOOTH_FACTOR)
-
-        self.abb_manager.send_to_robot(cartesian=(self.current_send_pos, self.current_send_orient))
+        pos_mm = [
+            cartesian_cmd.p.x() * 1000.0,
+            cartesian_cmd.p.y() * 1000.0,
+            cartesian_cmd.p.z() * 1000.0
+        ]
+        qx, qy, qz, qw = cartesian_cmd.M.GetQuaternion()
+        orient = [qw, qx, qy, qz]
+        
+        self.abb_manager.send_to_robot(cartesian=(pos_mm, orient))
     
 def main(args=None):
     try:
