@@ -1,15 +1,50 @@
-from multiprocessing.util import get_logger
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
-from std_msgs.msg import String
-from geometry_msgs.msg import Pose, PoseStamped
+from geometry_msgs.msg import Pose
 
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 from ABBRobotEGM import EGM
 import PyKDL
+
+# MODULE Prueba_EGM_Joint
+#     VAR egmident egmID;
+#     VAR num count := 0;
+
+#     PROC main()
+#         TPWrite "EGM Joint example START";
+
+#         EGMReset egmID;
+#         EGMGetId egmID;
+
+#         ! Configuración EGM legacy (la que a ti te funciona)
+#         EGMSetupUC ROB_1, egmID, "default", "UCdevice"\Joint;
+
+#         EGMActJoint egmID;
+#         EGMActJoint egmID\StreamStart;
+
+#         ! Movimiento de prueba (RAPID normal)
+#         WHILE count < 10 DO
+#             Incr count;
+
+#             MoveAbsJ [[0,0,0,0,30,0],
+#                       [9E9,9E9,9E9,9E9,9E9,9E9]]
+#                       \NoEOffs, v1000, fine, tool0\WObj:=wobj0;
+
+#             MoveAbsJ [[90,0,0,0,30,0],
+#                       [9E9,9E9,9E9,9E9,9E9,9E9]]
+#                       \NoEOffs, v1000, fine, tool0\WObj:=wobj0;
+#         ENDWHILE
+
+#         EGMStop egmID, EGM_STOP_HOLD;
+
+#         TPWrite "EGM Joint example END";
+#     ENDPROC
+
+# ENDMODULE
+
 
 def from_msg_pose(msg_pose, kdl_frame):
     kdl_frame.p = PyKDL.Vector(
@@ -24,6 +59,7 @@ def from_msg_pose(msg_pose, kdl_frame):
         msg_pose.orientation.w
     )
 
+
 def from_state_abb(state, kdl_frame):
     kdl_frame.p = PyKDL.Vector(
         state.cartesian.pos.x,
@@ -37,6 +73,7 @@ def from_state_abb(state, kdl_frame):
         state.cartesian.orient.u0
     )
 
+
 def to_state_abb(kdl_frame):
     pos_mm = [
         kdl_frame.p.x() * 1000.0,
@@ -48,7 +85,10 @@ def to_state_abb(kdl_frame):
 
     return pos_mm, orient
 
+
 NODE = 'haptic_to_cartesian'
+HAPTIC_NODE_NAME = 'haptic_device_ros2'
+
 class HapticToCartesian(Node):
 
     def __init__(self):
@@ -67,7 +107,7 @@ class HapticToCartesian(Node):
         self.suscribe_create()
 
         self.get_logger().info(
-            "Haptic to Cartesian Node started - Listening to: %s" % (NODE + '/state/pose')
+            f'Haptic to Cartesian Node started - Listening to: {NODE}/state/pose'
         )
 
     # -------------------------------------------------------------------------------------------
@@ -77,87 +117,83 @@ class HapticToCartesian(Node):
         count = 0
         while count < 10:
             success, state = self.abb_manager.receive_from_robot()
-            if not success: 
+            if not success:
                 count += 1
                 continue
             self.cartesian_initial_pose(state)
             break
 
         if count == 10:
-            self.get_logger().error("Failed to receive initial state from ABB robot after 10 attempts.")
-            raise RuntimeError("Failed to receive initial state from ABB robot after 10 attempts.")
+            self.get_logger().error('Failed to receive initial state from ABB robot after 10 attempts.')
+            raise RuntimeError('Failed to receive initial state from ABB robot after 10 attempts.')
 
         self.get_logger().info('ABB EGM Manager created')
-    
+
     def set_parameters(self):
         descriptor_msg = ParameterDescriptor()
         
         # roll
         roll_N_sensor_ = 0.0
-        descriptor_msg.name = "roll_N_sensor"
-        descriptor_msg.description = "Rotation about global axis X (roll) from TCP to sensor (radians)."
+        descriptor_msg.name = 'roll_N_sensor'
+        descriptor_msg.description = 'Rotation about global axis X (roll) from TCP to sensor (radians).'
         descriptor_msg.read_only = True
         descriptor_msg.type = ParameterType.PARAMETER_DOUBLE
-        self.declare_parameter("roll_N_sensor", 0.0, descriptor_msg)
-        roll_N_sensor_ = self.get_parameter("roll_N_sensor").value
+        self.declare_parameter('roll_N_sensor', 0.0, descriptor_msg)
+        roll_N_sensor_ = self.get_parameter('roll_N_sensor').value
         
         # pitch
         pitch_N_sensor_ = 0.0
-        descriptor_msg.name = "pitch_N_sensor"
-        descriptor_msg.description = "Rotation about global axis Y (pitch) from TCP to sensor (radians)."
+        descriptor_msg.name = 'pitch_N_sensor'
+        descriptor_msg.description = 'Rotation about global axis Y (pitch) from TCP to sensor (radians).'
         descriptor_msg.read_only = True
         descriptor_msg.type = ParameterType.PARAMETER_DOUBLE
-        self.declare_parameter("pitch_N_sensor", 0.0, descriptor_msg)
-        pitch_N_sensor_ = self.get_parameter("pitch_N_sensor").value
+        self.declare_parameter('pitch_N_sensor', 0.0, descriptor_msg)
+        pitch_N_sensor_ = self.get_parameter('pitch_N_sensor').value
         
         # yaw
         yaw_N_sensor_ = 0.0
-        descriptor_msg.name = "yaw_N_sensor"
-        descriptor_msg.description = "Rotation about global axis Z (yaw) from TCP to sensor (radians)."
+        descriptor_msg.name = 'yaw_N_sensor'
+        descriptor_msg.description = 'Rotation about global axis Z (yaw) from TCP to sensor (radians).'
         descriptor_msg.read_only = True
         descriptor_msg.type = ParameterType.PARAMETER_DOUBLE
-        self.declare_parameter("yaw_N_sensor", 0.0, descriptor_msg)
-        yaw_N_sensor_ = self.get_parameter("yaw_N_sensor").value
+        self.declare_parameter('yaw_N_sensor', 0.0, descriptor_msg)
+        yaw_N_sensor_ = self.get_parameter('yaw_N_sensor').value
         
         self.H_N_robot_0_sensor.M = PyKDL.Rotation.RPY(roll_N_sensor_, pitch_N_sensor_, yaw_N_sensor_)
     
     def suscribe_create(self):
         self.m_haptic_poseHaptic_sub = self.create_subscription(
             Pose,
-            NODE + '/state/pose',
+            HAPTIC_NODE_NAME + '/state/pose',
             self.haptic_pose_callback,
             10
         )
         self.get_logger().info('Haptic subscriber created')
 
     # -------------------------------------------------------------------------------------------
-    def haptic_pose_callback(self, msg):        
+    def haptic_pose_callback(self, msg):
         self.haptic_initial_pose(msg)
-    
+
         self.get_logger().info(
-            'Received haptic pose: [%.3f, %.3f, %.3f]',
-            msg.position.x, msg.position.y, msg.position.z)
-        
+            f'Received haptic pose: [{msg.position.x:.3f}, {msg.position.y:.3f}, {msg.position.z:.3f}]'
+        )
+
         self.comprobate_initialPose(msg)
 
     def comprobate_initialPose(self, msg):
         if (not self.first_haptic_output) or (not self.first_teo_output):
             self.get_logger().warn(
-                'Not received initial pose of Haptic %d and Teo %d', 
-                self.first_haptic_output, self.first_teo_output
+                f'Not received initial pose of Haptic {self.first_haptic_output} and Teo {self.first_teo_output}'
             )
             return
-        
+
         cartesian_cmd = self.calculate_diferential_pose(msg)
         self.run_egm_loop(cartesian_cmd)
 
         self.get_logger().info(
-            'Published cartesian command: [%.3f, %.3f, %.3f]',
-            cartesian_cmd.p.x(),
-            cartesian_cmd.p.y(),
-            cartesian_cmd.p.z()
+            f'Published cartesian command: [{cartesian_cmd.p.x():.3f}, {cartesian_cmd.p.y():.3f}, {cartesian_cmd.p.z():.3f}]'
         )
-    
+
     def calculate_diferential_pose(self, msg):
         H_0_N_sensor_current = PyKDL.Frame()
         from_msg_pose(msg, H_0_N_sensor_current)
@@ -202,11 +238,16 @@ class HapticToCartesian(Node):
         self.abb_manager.send_to_robot(cartesian=(pos_mm, orient))
     
 def main(args=None):
+    rclpy.init(args=args)
+    node = HapticToCartesian()
+
     try:
-        with rclpy.init(args=args):
-            rclpy.spin(HapticToCartesian())
+        rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':

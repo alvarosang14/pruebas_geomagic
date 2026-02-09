@@ -3,28 +3,28 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from std_srvs.srv import SetBool
+from sensor_msgs.msg import JointState
 from geometry_msgs.msg import Wrench
 
 NODE = 'cartesian_to_haptic'
-HAPTIC_YARP_DEVICE_NODE_NAME = 'haptic_yarp_device'
-
+HAPTIC_NODE_NAME = 'haptic_device_ros2'
 class CartesianToHaptic(Node):
 
     def __init__(self):
         super().__init__(NODE)
         self.publish_cartesian_create()
         if not self.set_feedback_mode():
-            self.get_logger().error("Failed to configure cartesian control server")
+            self.get_logger().error('Failed to configure cartesian control server')
             return
         self.haptic_subscriber_create()
         self.get_logger().info('Cartesian to Haptic Feedback Node started')
 
     # -------------------------------------------------------------------------------------------
     def publish_cartesian_create(self):
-        self.m_haptic_feedback_pub = self.create_publisher(String, HAPTIC_YARP_DEVICE_NODE_NAME + '/feedback', 10)
+        self.m_haptic_feedback_pub = self.create_publisher(JointState, HAPTIC_NODE_NAME + '/feedback', 10)
 
     def set_feedback_mode(self):
-        self.client_set_feedback_mode = self.create_client(SetBool, 'set_feedback_mode')
+        self.client_set_feedback_mode = self.create_client(SetBool, HAPTIC_NODE_NAME + '/set_feedback_mode')
         
         request = SetBool.Request()
         request.data = False
@@ -60,14 +60,20 @@ class CartesianToHaptic(Node):
     # -------------------------------------------------------------------------------------------
     def publish_haptic_feedback(self, feedback):
         self.m_haptic_feedback_pub.publish(feedback)
-        self.get_logger().info(f"Published haptic feedback: {feedback.force.x}, {feedback.force.y}, {feedback.force.z}")
+        self.get_logger().info(f'Published haptic feedback: {feedback.force.x}, {feedback.force.y}, {feedback.force.z}')
 
 def main(args=None):
+    rclpy.init(args=args)
+    node = CartesianToHaptic()
+
     try:
-        with rclpy.init(args=args):
-            rclpy.spin(CartesianToHaptic())
+        rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
 
 
 if __name__ == '__main__':
