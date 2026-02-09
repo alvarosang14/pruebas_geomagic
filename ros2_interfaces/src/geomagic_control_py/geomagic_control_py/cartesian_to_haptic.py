@@ -3,7 +3,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from std_srvs.srv import SetBool
-from std_msgs.msg import Wrench
+from geometry_msgs.msg import Wrench
 
 NODE = 'cartesian_to_haptic'
 HAPTIC_YARP_DEVICE_NODE_NAME = 'haptic_yarp_device'
