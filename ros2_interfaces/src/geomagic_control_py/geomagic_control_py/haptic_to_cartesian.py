@@ -9,40 +9,35 @@ from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from ABBRobotEGM import EGM
 import PyKDL
 
-# MODULE Prueba_EGM_Joint
-#     VAR egmident egmID;
-#     VAR num count := 0;
+# MODULE MainModule
+#     VAR egmident egmID1;
+#     VAR egmstate egmSt1;
 
+#     CONST jointtarget initial:=[[0,0,0,0,30,0],[9E09,9E09,9E09,9E09,9E09,9E09]];
+#     CONST egm_minmax egm_minmax_lin:=[-1E-9,+1E-9]; ! [mm]
+#     CONST egm_minmax egm_minmax_rot:=[-1E-9,+1E-9]; ! [deg]
+
+#     VAR pose corr_frame_offs:=[[0,0,0],[1,0,0,0]];
+    
 #     PROC main()
-#         TPWrite "EGM Joint example START";
+#         MoveAbsJ initial,v500,fine,tool0;
+        
+#         EGMReset egmID1;
+#         EGMGetId egmID1;
+#         egmSt1:=EGMGetState(egmID1);
+        
+#         IF egmSt1<=EGM_STATE_CONNECTED THEN
+#             EGMSetupUC ROB_1,egmID1,"default","UCdevice"\pose;
+#         ENDIF
 
-#         EGMReset egmID;
-#         EGMGetId egmID;
-
-#         ! Configuración EGM legacy (la que a ti te funciona)
-#         EGMSetupUC ROB_1, egmID, "default", "UCdevice"\Joint;
-
-#         EGMActJoint egmID;
-#         EGMActJoint egmID\StreamStart;
-
-#         ! Movimiento de prueba (RAPID normal)
-#         WHILE count < 10 DO
-#             Incr count;
-
-#             MoveAbsJ [[0,0,0,0,30,0],
-#                       [9E9,9E9,9E9,9E9,9E9,9E9]]
-#                       \NoEOffs, v1000, fine, tool0\WObj:=wobj0;
-
-#             MoveAbsJ [[90,0,0,0,30,0],
-#                       [9E9,9E9,9E9,9E9,9E9,9E9]]
-#                       \NoEOffs, v1000, fine, tool0\WObj:=wobj0;
-#         ENDWHILE
-
-#         EGMStop egmID, EGM_STOP_HOLD;
-
-#         TPWrite "EGM Joint example END";
+#         EGMActPose egmID1\StreamStart\Tool:=tool0\DIFromSensor:=diEGM,corr_frame_offs,EGM_FRAME_WOBJ,corr_frame_offs,EGM_FRAME_WOBJ
+#             \X:=egm_minmax_lin\Y:=egm_minmax_lin\Z:=egm_minmax_lin
+#             \RX:=egm_minmax_rot\RY:=egm_minmax_rot\RZ:=egm_minmax_rot
+#             \MaxSpeedDeviation:=4000;
+#         EGMRunPose egmID1,EGM_STOP_HOLD\NoWaitCond\x\y\z\rx\ry\rz\RampInTime:=0.05;
+#         WaitDI diEGM,1;
+#         EGMStop egmID1,EGM_STOP_HOLD;
 #     ENDPROC
-
 # ENDMODULE
 
 
@@ -174,7 +169,7 @@ class HapticToCartesian(Node):
     # -------------------------------------------------------------------------------------------
     def haptic_pose_callback(self, msg):
         self.haptic_initial_pose(msg)
-        
+
         self.get_logger().info(
             f'Received haptic pose: [{msg.position.x:.3f}, {msg.position.y:.3f}, {msg.position.z:.3f}]'
         )
