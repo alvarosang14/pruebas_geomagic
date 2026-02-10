@@ -62,9 +62,9 @@ def from_msg_pose(msg_pose, kdl_frame):
 
 def from_state_abb(state, kdl_frame):
     kdl_frame.p = PyKDL.Vector(
-        state.cartesian.pos.x,
-        state.cartesian.pos.y,
-        state.cartesian.pos.z
+        state.cartesian.pos.x * 0.001,
+        state.cartesian.pos.y * 0.001,
+        state.cartesian.pos.z * 0.001
     )
     kdl_frame.M = PyKDL.Rotation.Quaternion(
         state.cartesian.orient.u1,
@@ -127,6 +127,7 @@ class HapticToCartesian(Node):
             self.get_logger().error('Failed to receive initial state from ABB robot after 10 attempts.')
             raise RuntimeError('Failed to receive initial state from ABB robot after 10 attempts.')
 
+        self.get_logger().info(f'Initial robot pose: {state.cartesian}')
         self.get_logger().info('ABB EGM Manager created')
 
     def set_parameters(self):
@@ -173,7 +174,7 @@ class HapticToCartesian(Node):
     # -------------------------------------------------------------------------------------------
     def haptic_pose_callback(self, msg):
         self.haptic_initial_pose(msg)
-
+        
         self.get_logger().info(
             f'Received haptic pose: [{msg.position.x:.3f}, {msg.position.y:.3f}, {msg.position.z:.3f}]'
         )
@@ -189,10 +190,6 @@ class HapticToCartesian(Node):
 
         cartesian_cmd = self.calculate_diferential_pose(msg)
         self.run_egm_loop(cartesian_cmd)
-
-        self.get_logger().info(
-            f'Published cartesian command: [{cartesian_cmd.p.x():.3f}, {cartesian_cmd.p.y():.3f}, {cartesian_cmd.p.z():.3f}]'
-        )
 
     def calculate_diferential_pose(self, msg):
         H_0_N_sensor_current = PyKDL.Frame()
@@ -235,7 +232,10 @@ class HapticToCartesian(Node):
     # -------------------------------------------------------------------------------------------
     def run_egm_loop(self, cartesian_cmd):
         pos_mm, orient = to_state_abb(cartesian_cmd)
-        self.abb_manager.send_to_robot(cartesian=(pos_mm, orient))
+        self.abb_manager.send_to_robot(cartesian=(pos_mm, orient),digital_signal_to_robot=False)
+        self.get_logger().info(
+            f'Published cartesian command: [{pos_mm[0]:.3f}, {pos_mm[1]:.3f}, {pos_mm[2]:.3f}]'
+        )
     
 def main(args=None):
     rclpy.init(args=args)
