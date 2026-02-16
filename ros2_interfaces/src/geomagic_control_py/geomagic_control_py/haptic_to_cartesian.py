@@ -3,7 +3,7 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from geometry_msgs.msg import Pose
-
+from std_msgs.msg import Int32MultiArray
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
 from ABBRobotEGM import EGM
@@ -91,6 +91,7 @@ class HapticToCartesian(Node):
 
         self.first_haptic_output = False
         self.first_teo_output = False
+        self.capture_enabled = True
         self.H_0_N_sensor_initial = PyKDL.Frame()
         self.H_0_N_robot_initial = PyKDL.Frame()
         self.H_N_robot_0_sensor = PyKDL.Frame()
@@ -164,10 +165,35 @@ class HapticToCartesian(Node):
             self.haptic_pose_callback,
             10
         )
+
+        self.m_haptic_buttons_sub = self.create_subscription(
+            Int32MultiArray,
+            HAPTIC_NODE_NAME + '/state/buttons',
+            self.haptic_buttons_callback,
+            10
+        )
         self.get_logger().info('Haptic subscriber created')
 
     # -------------------------------------------------------------------------------------------
+    def haptic_buttons_callback(self, msg):
+        if len(msg.data) < 2:
+            return
+        
+        # boton 0: reset de posiciones iniciales
+        if msg.data[0] == 1:
+            self.first_teo_output = False
+            self.get_logger().info('Button 0 pressed: Initial positions reset. Ready to recalibrate.')
+        
+        # boton 1: enable/disable captura haptica
+        if msg.data[1] == 1:
+            self.capture_enabled = not self.capture_enabled
+            self.get_logger().info(f'Button 1 pressed: Haptic capture {self.capture_enabled}')
+
     def haptic_pose_callback(self, msg):
+        if not self.capture_enabled:
+            self.get_logger().info('Haptic capture disabled, ignoring pose message.')
+            return
+
         self.haptic_initial_pose(msg)
 
         self.get_logger().info(
