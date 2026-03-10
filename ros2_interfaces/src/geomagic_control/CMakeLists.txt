@@ -41,8 +41,22 @@ ament_target_dependencies(cartesian_to_haptic
   sensor_msgs
 )
 
+add_executable(full_haptic
+  src/fullHaptic/fullHaptic.cpp
+)
+target_include_directories(full_haptic PUBLIC include)
+ament_target_dependencies(full_haptic
+  rclcpp
+  geometry_msgs
+  std_msgs
+  std_srvs
+  orocos_kdl
+  sensor_msgs
+)
+
 install(TARGETS haptic_to_cartesian
   cartesian_to_haptic
+  full_haptic
   DESTINATION lib/${PROJECT_NAME}
 )
 
