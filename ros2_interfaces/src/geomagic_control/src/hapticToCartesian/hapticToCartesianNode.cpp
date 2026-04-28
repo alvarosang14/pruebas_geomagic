@@ -97,10 +97,17 @@ bool HapticToCartesianNode::setPoseMode() {
 void HapticToCartesianNode::setParameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
 
+    // scale
+    scale_ = 1.0;
+    descriptor_msg.name = "scale";
+    descriptor_msg.description = "Scaling factor to apply to the haptic movements (default: 1.0).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE);
+    declare_parameter<double>("scale", 1.0, descriptor_msg);
+    get_parameter("scale", scale_);
+
     // roll
-
     double roll_N_sensor_ = 0.0;
-
     descriptor_msg.name = "roll_N_sensor";
     descriptor_msg.description = "Rotation about global axis X (roll) from TCP to sensor (radians).";
     descriptor_msg.read_only = true;
@@ -110,7 +117,6 @@ void HapticToCartesianNode::setParameters() {
     get_parameter("roll_N_sensor", roll_N_sensor_);
 
     // pitch
-
     double pitch_N_sensor_ = 0.0;
 
     descriptor_msg.name = "pitch_N_sensor";
@@ -122,7 +128,6 @@ void HapticToCartesianNode::setParameters() {
     get_parameter("pitch_N_sensor", pitch_N_sensor_);
 
     // yaw
-
     double yaw_N_sensor_ = 0.0;
 
     descriptor_msg.name = "yaw_N_sensor";
@@ -207,6 +212,9 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
     // H_N_robot_0_sensor ya nos hemos asegurado que es solo rotacion
 
     auto p = H_0_N_robot_initial * (H_N_robot_0_sensor * (Rot_0_N_sensor_initial * H_sensor_initial_current.p));
+    
+    //escale??
+    p = KDL::Vector(p.x() * scale_, p.y() * scale_, p.z() * scale_);
 
     // transformamos la traslacion con respecto la base del sensor
     // tranformamos el resultado a los mismos ejes de teo

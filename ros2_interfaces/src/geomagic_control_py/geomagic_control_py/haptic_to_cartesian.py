@@ -96,6 +96,8 @@ class HapticToCartesian(Node):
         self.H_0_N_robot_initial = PyKDL.Frame()
         self.H_N_robot_0_sensor = PyKDL.Frame()
 
+        self.scale_ = 1.0
+
         self.abb_manager = None
 
         self.set_parameters()
@@ -128,6 +130,14 @@ class HapticToCartesian(Node):
 
     def set_parameters(self):
         descriptor_msg = ParameterDescriptor()
+
+        # scale
+        descriptor_msg.name = 'scale'
+        descriptor_msg.description = 'Scaling factor to apply to the haptic movements (default: 1.0).'
+        descriptor_msg.read_only = False
+        descriptor_msg.type = ParameterType.PARAMETER_DOUBLE
+        self.declare_parameter('scale', 1.0, descriptor_msg)
+        self.scale_ = self.get_parameter('scale').value
         
         # roll
         roll_N_sensor_ = 0.0
@@ -227,6 +237,9 @@ class HapticToCartesian(Node):
         # H_N_robot_0_sensor ya nos hemos asegurado que es solo rotacion
 
         p = self.H_0_N_robot_initial * (self.H_N_robot_0_sensor * (Rot_0_N_sensor_initial * H_sensor_initial_current.p))
+
+        # Aplicar factor de escala??
+        p = PyKDL.Vector(p.x() * self.scale_, p.y() * self.scale_, p.z() * self.scale_)
 
         # transformamos la traslacion con respecto la base del sensor
         # tranformamos el resultado a los mismos ejes de teo

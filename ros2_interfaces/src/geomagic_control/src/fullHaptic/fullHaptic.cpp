@@ -131,6 +131,14 @@ bool FullHapticNode::setFeedbackMode()
 void FullHapticNode::setParameters()
 {
     rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
+    // scale
+    scale_ = 1.0;
+    descriptor_msg.name = "scale";
+    descriptor_msg.description = "Scaling factor to apply to the haptic movements (default: 1.0).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE);
+    declare_parameter<double>("scale", 1.0, descriptor_msg);
+    get_parameter("scale", scale_);
 
     // roll
     double roll_N_sensor_ = 0.0;
@@ -254,6 +262,8 @@ geometry_msgs::msg::Pose FullHapticNode::calculateDiferentialPose(
     Rot_0_N_sensor_initial.p = KDL::Vector::Zero();
 
     auto p = H_0_N_robot_initial * (H_N_robot_0_sensor * (Rot_0_N_sensor_initial * H_sensor_initial_current.p));
+
+    p = KDL::Vector(p.x() * scale_, p.y() * scale_, p.z() * scale_);
 
     KDL::Frame H_0_N_robot = H_0_N_robot_initial;
     H_0_N_robot.p = p;

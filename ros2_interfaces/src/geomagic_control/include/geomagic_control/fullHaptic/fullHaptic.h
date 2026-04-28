@@ -55,6 +55,9 @@ private:
     KDL::Frame H_N_robot_0_sensor;
     KDL::Frame H_0_N_sensor_initial;
     KDL::Frame H_0_N_robot_initial;
+
+    int scale_;
+
     bool firstHapticOutput {false};
     bool firstTeoOutput    {false};
 

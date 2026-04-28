@@ -2,8 +2,9 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
-from geometry_msgs.msg import Pose
+from std_srvs.srv import SetBool
 from sensor_msgs.msg import JointState
+from geometry_msgs.msg import Wrench, Pose
 from std_msgs.msg import Int32MultiArray
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 
@@ -11,10 +12,11 @@ from ABBRobotEGM import EGM
 import PyKDL
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+NODE = 'haptic_cartesian_bridge'
+HAPTIC_NODE_NAME = 'haptic_device_ros2'
 
+
+# ===================== AUX FUNCTIONS =====================
 def from_msg_pose(msg_pose, kdl_frame):
     kdl_frame.p = PyKDL.Vector(
         msg_pose.position.x,
@@ -51,193 +53,166 @@ def to_state_abb(kdl_frame):
     ]
     qx, qy, qz, qw = kdl_frame.M.GetQuaternion()
     orient = [qw, qx, qy, qz]
+
     return pos_mm, orient
 
 
-# ---------------------------------------------------------------------------
-# Node
-# ---------------------------------------------------------------------------
-
-NODE = 'haptic_egm_node'
-HAPTIC_NODE_NAME = 'haptic_device_ros2'
-
-
-class HapticEGMNode(Node):
+# ===================== NODE =====================
+class HapticCartesianBridge(Node):
 
     def __init__(self):
         super().__init__(NODE)
 
-        # Haptic → Cartesian
+        # -------- STATE --------
         self.first_haptic_output = False
         self.first_robot_output = False
         self.capture_enabled = True
+
         self.H_0_N_sensor_initial = PyKDL.Frame()
         self.H_0_N_robot_initial = PyKDL.Frame()
         self.H_N_robot_0_sensor = PyKDL.Frame()
 
-        # Cartesian → Haptic feedback
-        self.H_0_N_robot_reference = PyKDL.Frame()
-        self.feedback_gain = 1.0
+        self.scale_ = 1.0
 
-        # Único EGM compartido
-        self.abb_manager = None
+        # -------- INIT --------
+        self.set_parameters()
+        self.create_egm()
+        self.create_haptic_interface()
+        self.create_subscribers()
 
-        self._setup_parameters()
-        self._setup_egm()
-        self._setup_subscribers()
-        self._setup_publishers()
+        self.get_logger().info('Unified Haptic-Cartesian Bridge started')
 
-        # Loop feedback 100 Hz
-        self.timer = self.create_timer(0.01, self._feedback_loop)
+    # ===================== HAPTIC =====================
+    def create_haptic_interface(self):
+        # Publisher feedback
+        self.feedback_pub = self.create_publisher(
+            JointState,
+            HAPTIC_NODE_NAME + '/feedback',
+            10
+        )
 
-        self.get_logger().info(f'{NODE} started')
+        # Set feedback mode
+        self.client = self.create_client(
+            SetBool,
+            HAPTIC_NODE_NAME + '/set_feedback_mode'
+        )
 
-    # -----------------------------------------------------------------------
-    # Setup
-    # -----------------------------------------------------------------------
+        req = SetBool.Request()
+        req.data = False
 
-    def _setup_parameters(self):
-        desc = ParameterDescriptor()
-        desc.read_only = True
-        desc.type = ParameterType.PARAMETER_DOUBLE
+        while not self.client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for haptic service...')
 
-        for axis in ('roll', 'pitch', 'yaw'):
-            desc.name = f'{axis}_N_sensor'
-            desc.description = f'Rotation ({axis}) TCP->sensor (rad).'
-            self.declare_parameter(f'{axis}_N_sensor', 0.0, desc)
+        future = self.client.call_async(req)
+        rclpy.spin_until_future_complete(self, future)
 
-        roll  = self.get_parameter('roll_N_sensor').value
-        pitch = self.get_parameter('pitch_N_sensor').value
-        yaw   = self.get_parameter('yaw_N_sensor').value
-        self.H_N_robot_0_sensor.M = PyKDL.Rotation.RPY(roll, pitch, yaw)
+        if future.result() is None:
+            raise RuntimeError("Failed to set feedback mode")
 
-    def _setup_egm(self):
-        self.abb_manager = EGM()
+    # ===================== EGM =====================
+    def create_egm(self):
+        self.abb = EGM()
 
         for _ in range(10):
-            success, state = self.abb_manager.receive_from_robot()
-            if not success:
-                continue
+            success, state = self.abb.receive_from_robot()
+            if success:
+                self.cartesian_initial_pose(state)
+                break
+        else:
+            raise RuntimeError("No EGM connection")
 
-            # Pose inicial para calculo diferencial de movimiento
-            from_state_abb(state, self.H_0_N_robot_initial)
-            self.first_robot_output = True
+        self.get_logger().info("EGM initialized")
 
-            # Pose de referencia para feedback de fuerza
-            self.H_0_N_robot_reference.p = PyKDL.Vector(
-                state.cartesian.pos.x * 0.001,
-                state.cartesian.pos.y * 0.001,
-                state.cartesian.pos.z * 0.001
-            )
+    # ===================== PARAMETERS =====================
+    def set_parameters(self):
+        self.declare_parameter('scale', 1.0)
+        self.scale_ = self.get_parameter('scale').value
 
-            self.get_logger().info(f'Initial robot pose: {state.cartesian}')
-            self.get_logger().info('EGM ready')
-            return
+        self.declare_parameter('roll_N_sensor', 0.0)
+        self.declare_parameter('pitch_N_sensor', 0.0)
+        self.declare_parameter('yaw_N_sensor', 0.0)
 
-        raise RuntimeError('Failed to receive initial state from ABB robot after 10 attempts.')
+        r = self.get_parameter('roll_N_sensor').value
+        p = self.get_parameter('pitch_N_sensor').value
+        y = self.get_parameter('yaw_N_sensor').value
 
-    def _setup_subscribers(self):
-        self.create_subscription(Pose,
-            HAPTIC_NODE_NAME + '/state/pose', self._haptic_pose_callback, 10)
-        self.create_subscription(Int32MultiArray,
-            HAPTIC_NODE_NAME + '/state/buttons', self._haptic_buttons_callback, 10)
+        self.H_N_robot_0_sensor.M = PyKDL.Rotation.RPY(r, p, y)
 
-    def _setup_publishers(self):
-        self.feedback_pub = self.create_publisher(
-            JointState, HAPTIC_NODE_NAME + '/feedback', 10)
+    # ===================== SUBSCRIBERS =====================
+    def create_subscribers(self):
+        self.create_subscription(Wrench, '/state', self.force_callback, 10)
+        self.create_subscription(Pose, HAPTIC_NODE_NAME + '/state/pose', self.pose_callback, 10)
+        self.create_subscription(Int32MultiArray, HAPTIC_NODE_NAME + '/state/buttons', self.buttons_callback, 10)
 
-    # -----------------------------------------------------------------------
-    # Haptic -> Cartesian (movimiento del robot)
-    # -----------------------------------------------------------------------
+    # ===================== CALLBACKS =====================
+    def force_callback(self, msg):
+        self.feedback_pub.publish(msg)
 
-    def _haptic_buttons_callback(self, msg):
+    def buttons_callback(self, msg):
         if len(msg.data) < 2:
             return
+
         if msg.data[0] == 1:
             self.first_robot_output = False
-            self.get_logger().info('Button 0: reset pose inicial, recalibrando...')
+
         if msg.data[1] == 1:
             self.capture_enabled = not self.capture_enabled
-            self.get_logger().info(
-                f'Button 1: captura haptica {"ON" if self.capture_enabled else "OFF"}')
 
-    def _haptic_pose_callback(self, msg):
+    def pose_callback(self, msg):
         if not self.capture_enabled:
             return
 
-        if not self.first_haptic_output:
-            self.first_haptic_output = True
-            from_msg_pose(msg, self.H_0_N_sensor_initial)
-            self.get_logger().info('Initial haptic pose set.')
+        self.set_initial_haptic(msg)
 
-        if not self.first_robot_output:
-            self.get_logger().warn('Esperando pose inicial del robot...')
+        if not (self.first_haptic_output and self.first_robot_output):
             return
 
-        cartesian_cmd = self._calculate_differential_pose(msg)
-        pos_mm, orient = to_state_abb(cartesian_cmd)
-        self.abb_manager.send_to_robot(cartesian=(pos_mm, orient), digital_signal_to_robot=False)
-        self.get_logger().debug(
-            f'Cartesian cmd: [{pos_mm[0]:.3f}, {pos_mm[1]:.3f}, {pos_mm[2]:.3f}] mm')
+        cmd = self.compute_motion(msg)
+        self.send_to_robot(cmd)
 
-    def _calculate_differential_pose(self, msg):
-        H_0_N_sensor_current = PyKDL.Frame()
-        from_msg_pose(msg, H_0_N_sensor_current)
+    # ===================== LOGIC =====================
+    def set_initial_haptic(self, msg):
+        if not self.first_haptic_output:
+            from_msg_pose(msg, self.H_0_N_sensor_initial)
+            self.first_haptic_output = True
 
-        H_sensor_initial_current = self.H_0_N_sensor_initial.Inverse() * H_0_N_sensor_current
-        H_sensor_initial_current.M = PyKDL.Rotation.Identity()  # solo traslacion
+    def cartesian_initial_pose(self, state):
+        if not self.first_robot_output:
+            from_state_abb(state, self.H_0_N_robot_initial)
+            self.first_robot_output = True
 
-        Rot_0_N_sensor_initial = PyKDL.Frame(self.H_0_N_sensor_initial)
-        Rot_0_N_sensor_initial.p = PyKDL.Vector.Zero()
+    def compute_motion(self, msg):
+        current = PyKDL.Frame()
+        from_msg_pose(msg, current)
+
+        delta = self.H_0_N_sensor_initial.Inverse() * current
+        delta.M = PyKDL.Rotation.Identity()
 
         p = self.H_0_N_robot_initial * (
-            self.H_N_robot_0_sensor * (
-                Rot_0_N_sensor_initial * H_sensor_initial_current.p
-            )
+            self.H_N_robot_0_sensor * delta.p
         )
 
-        H_0_N_robot = PyKDL.Frame(self.H_0_N_robot_initial)
-        H_0_N_robot.p = p
-        return H_0_N_robot
-
-    # -----------------------------------------------------------------------
-    # Cartesian -> Haptic (feedback de fuerza)
-    # -----------------------------------------------------------------------
-
-    def _feedback_loop(self):
-        if not self.first_robot_output:
-            return
-
-        success, state = self.abb_manager.receive_from_robot()
-        if not success:
-            self.get_logger().warn('No se recibio estado del robot', throttle_duration_sec=1.0)
-            return
-
-        current_pos = PyKDL.Vector(
-            state.cartesian.pos.x * 0.001,
-            state.cartesian.pos.y * 0.001,
-            state.cartesian.pos.z * 0.001
+        p = PyKDL.Vector(
+            p.x() * self.scale_,
+            p.y() * self.scale_,
+            p.z() * self.scale_
         )
 
-        diff = self.H_0_N_robot_reference.p - current_pos
-        gain = self.feedback_gain * 1000.0
+        result = PyKDL.Frame(self.H_0_N_robot_initial)
+        result.p = p
 
-        feedback_msg = JointState()
-        feedback_msg.header.stamp = self.get_clock().now().to_msg()
-        feedback_msg.effort = [diff.x() * gain, diff.y() * gain, diff.z() * gain]
-        self.feedback_pub.publish(feedback_msg)
+        return result
 
-        self.get_logger().debug(
-            f'Feedback: [{feedback_msg.effort[0]:.3f}, '
-            f'{feedback_msg.effort[1]:.3f}, '
-            f'{feedback_msg.effort[2]:.3f}] N')
+    def send_to_robot(self, frame):
+        pos, orient = to_state_abb(frame)
+        self.abb.send_to_robot(cartesian=(pos, orient), digital_signal_to_robot=False)
 
 
-# ---------------------------------------------------------------------------
-
+# ===================== MAIN =====================
 def main(args=None):
     rclpy.init(args=args)
-    node = HapticEGMNode()
+    node = HapticCartesianBridge()
+
     try:
         rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):

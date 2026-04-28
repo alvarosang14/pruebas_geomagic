@@ -27,6 +27,7 @@ private:
 
     rclcpp::Client<SetParameters>::SharedPtr client_param_;
 
+    int scale_;
     KDL::Frame H_N_robot_0_sensor;
     KDL::Frame H_0_N_sensor_initial;
     KDL::Frame H_0_N_robot_initial;
