@@ -1,0 +1,41 @@
+services:
+    yarp_server:
+        image: yarp.dockerfile
+        container_name: yarp_server
+        command: "yarpserver --write"
+        network_mode: "host"
+
+    yarp_geomagic:
+        image: yarp.dockerfile
+        container_name: yarp_geomagic
+        command: "yarpdev --device deviceBundler --attached_device geomagicdriver --wrapper_device hapticDevice_nws_yarp"
+        network_mode: "host"
+        depends_on:
+            - yarp_server
+    
+    yarp_geomagic_ros2:
+        build: yarp.dockerfile
+        container_name: yarp_geomagic_ros2
+        command: "yarpdev --device deviceBundler --attached_device geomagicdriver --wrapper_device hapticDevice_nws_ros2"        
+        network_mode: "host"
+        depends_on:
+            - yarp_server
+
+    node_abb:
+        build: ros2.dockerfile
+        container_name: node_abb
+        environment:
+            - NODE_ENV=production
+        network_mode: "host"
+        depends_on:
+            - yarp_geomagic_ros2
+    
+    node_geomagic:
+        build: ros2.dockerfile
+        container_name: node_geomagic
+        environment:
+            - NODE_ENV=production
+        network_mode: "host"
+        depends_on:
+            - node_abb
+  
