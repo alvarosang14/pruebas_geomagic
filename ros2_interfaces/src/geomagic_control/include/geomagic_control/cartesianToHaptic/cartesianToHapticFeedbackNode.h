@@ -4,16 +4,13 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <geometry_msgs/msg/pose.hpp>
+#include <geometry_msgs/msg/wrench.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 
 #include <kdl/frames.hpp>
-
-#define NODE_NAME "cartesian_to_haptic_feedback_node"
-#define CARTESIAN_CONTROL_SERVER_NODE_NAME "cartesian_control_server_ros2"
-#define HAPTIC_YARP_DEVICE_NODE_NAME "haptic_device_ros2"
 
 class CartesianToHapticFeedbackNode : public rclcpp::Node {
 public:
@@ -22,7 +19,7 @@ public:
 
 private:
     // Publishers
-    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr m_haptic_feedback_pub;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr m_haptic_feedback_pub;
 
     // Subscribers
     rclcpp::SubscriptionBase::SharedPtr m_haptic_pose_sub;
@@ -51,8 +48,8 @@ private:
 
     // Callbacks
     void teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
-    void abbPoseCallback(const geometry_msgs::msg::Vector3::SharedPtr msg);
-    void abbTestPoseCallback(const sensor_msgs::msg::JointState::SharedPtr msg);
+    void abbPoseCallback(const geometry_msgs::msg::Wrench::SharedPtr msg);
+    void abbTestPoseCallback(const geometry_msgs::msg::Wrench::SharedPtr msg);
     void publishHapticFeedback(const KDL::Vector& force);
 };
 

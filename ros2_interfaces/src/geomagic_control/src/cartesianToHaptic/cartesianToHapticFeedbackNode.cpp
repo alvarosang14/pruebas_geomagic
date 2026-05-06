@@ -1,5 +1,9 @@
 #include "geomagic_control/cartesianToHaptic/cartesianToHapticFeedbackNode.h"
 
+#define NODE_NAME "cartesian_to_haptic_feedback_node"
+#define CARTESIAN_CONTROL_SERVER_NODE_NAME ""
+#define HAPTIC_YARP_DEVICE_NODE_NAME "pepito"
+
 namespace {
     inline void fromMsg(const geometry_msgs::msg::PoseStamped& in, KDL::Frame& out) {
         out.p = KDL::Vector(in.pose.position.x, in.pose.position.y, in.pose.position.z);
@@ -7,12 +11,10 @@ namespace {
                                           in.pose.orientation.z, in.pose.orientation.w);
     }
 
-    inline void toMsg(const KDL::Frame& in, sensor_msgs::msg::JointState& out) {
-        out.effort.resize(3);
-
-        out.effort[0] = in.p.x();
-        out.effort[1] = in.p.y();
-        out.effort[2] = in.p.z();
+    inline void toMsg(const KDL::Frame& in, geometry_msgs::msg::Vector3& out) {
+        out.x = in.p.x();
+        out.y = in.p.y();
+        out.z = in.p.z();
     }
 }
 
@@ -23,10 +25,10 @@ CartesianToHapticFeedbackNode::CartesianToHapticFeedbackNode() : Node(NODE_NAME)
 
     publishCartesianCreate();
 
-    if (!setFeedbackMode()) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to configure cartesian control server");
-        return;
-    }
+    // if (!setFeedbackMode()) {
+    //     RCLCPP_ERROR(this->get_logger(), "Failed to configure cartesian control server");
+    //     return;
+    // }
 
     hapticSubscribeCreate();
 
@@ -37,7 +39,7 @@ void CartesianToHapticFeedbackNode::selectRobot() {
     if (robot_selection == "teo") {
         RCLCPP_INFO(this->get_logger(), "Selected robot: Teo.");
     } else if (robot_selection == "abb") {
-        RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Abb.");
 
     } else if (robot_selection == "abb_test") {
         RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
@@ -55,13 +57,13 @@ void CartesianToHapticFeedbackNode::setParameters() {
     descriptor_msg.description = "Robot to control (default: teo).";
     descriptor_msg.read_only = true;
     descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING);
-    declare_parameter<std::string>("robot_selection", "teo", descriptor_msg);
+    declare_parameter<std::string>("robot_selection", "abb", descriptor_msg);
     get_parameter("robot_selection", robot_selection);
 }
 
 // ------------------------------ Publisher ------------------------------
 void CartesianToHapticFeedbackNode::publishCartesianCreate() {
-    m_haptic_feedback_pub = this->create_publisher<sensor_msgs::msg::JointState>(
+    m_haptic_feedback_pub = this->create_publisher<geometry_msgs::msg::Vector3>(
         std::string(HAPTIC_YARP_DEVICE_NODE_NAME) + "/feedback", 10);
 
 }
@@ -99,11 +101,11 @@ void CartesianToHapticFeedbackNode::hapticSubscribeCreate() {
             std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose", 10,
             std::bind(&CartesianToHapticFeedbackNode::teoPoseCallback, this, std::placeholders::_1));
     } else if (robot_selection == "abb") {
-        m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::Vector3>(
-            "/state/jr3", 10,
+        m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::Wrench>(
+            "/jr3", 10,
             std::bind(&CartesianToHapticFeedbackNode::abbPoseCallback, this, std::placeholders::_1));
     } else if (robot_selection == "abb_test") {
-        m_haptic_pose_sub = this->create_subscription<sensor_msgs::msg::JointState>(
+        m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::Wrench>(
             "/state/jr3_test", 10,
             std::bind(&CartesianToHapticFeedbackNode::abbTestPoseCallback, this, std::placeholders::_1));
     } else {
@@ -139,19 +141,21 @@ void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::Po
     }
 }
 
-void CartesianToHapticFeedbackNode::abbPoseCallback(const geometry_msgs::msg::Vector3::SharedPtr msg) {
-    KDL::Vector force(msg->x, msg->y, msg->z);
+void CartesianToHapticFeedbackNode::abbPoseCallback(const geometry_msgs::msg::Wrench::SharedPtr msg) {
+    KDL::Vector force(msg->force.x, msg->force.y, msg->force.z);
     publishHapticFeedback(force);
 }
 
-void CartesianToHapticFeedbackNode::abbTestPoseCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
-    KDL::Vector force(msg->effort[0], msg->effort[1], msg->effort[2]);
+void CartesianToHapticFeedbackNode::abbTestPoseCallback(const geometry_msgs::msg::Wrench::SharedPtr msg) {
+    KDL::Vector force(msg->force.x, msg->force.y, msg->force.z);
     publishHapticFeedback(force);
 }
 
 void CartesianToHapticFeedbackNode::publishHapticFeedback(const KDL::Vector& force) {
-    auto feedback_msg = sensor_msgs::msg::JointState();
+    auto feedback_msg = geometry_msgs::msg::Vector3();
     toMsg(KDL::Frame(force), feedback_msg);
+
+    RCLCPP_INFO(this->get_logger(), "Publishing haptic feedback: [%.2f, %.2f, %.2f] N", force.x(), force.y(), force.z());
 
     m_haptic_feedback_pub->publish(feedback_msg);
 

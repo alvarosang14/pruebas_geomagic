@@ -5,8 +5,17 @@ RUN apt-get update && apt-get install -y \
     cmake \
     git \
     udev \
-    ros-humble-test-msgs \
     wget 
+
+RUN apt-get update && apt-get install -y \
+    freeglut3-dev \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    libncurses5 \
+    libncursesw5 \
+    libusb-1.0-0-dev \
+    libxml2 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repos
 
@@ -30,29 +39,6 @@ RUN cd openhaptics_3.4-0-developer-edition-amd64 && \
     printf "y\nq\n" | ./install && \
     ldconfig
 
-# YARP
-RUN git clone --branch v0.18.4      https://github.com/robotology/ycm-cmake-modules.git
-RUN git clone --branch yarp-3.12    https://github.com/robotology/yarp.git
-RUN git clone --branch master       https://github.com/robotology/yarp-devices-haptic.git
-RUN git clone --branch master       https://github.com/robotology/yarp-devices-ros2.git
-
-# - Build YCM
-WORKDIR /repos/ycm-cmake-modules
-RUN mkdir build && cd build && cmake .. && make -j$(nproc) && make install
-
-# - Build YARP
-WORKDIR /repos/yarp
-RUN mkdir build && cd build && cmake -DSKIP_ACE=ON .. && make -j$(nproc) && make install
-
-# - Build YARP devices
-WORKDIR /repos/yarp-devices-haptic
-RUN mkdir build && cd build && cmake -DENABLE_geomagicdriver=ON .. && make -j$(nproc) && make install
-
-# - Build YARP devices ROS2
-WORKDIR /repos/yarp-devices-ros2
-RUN mkdir build && cd build && \
-    /bin/bash -c "source /opt/ros/humble/setup.bash && cmake .. && make -j$(nproc) && make install"
-
 FROM osrf/ros:humble-desktop AS final
 
 RUN apt-get update && apt-get install -y \
@@ -64,6 +50,3 @@ COPY --from=builder /etc /etc
 COPY --from=builder /opt /opt
 
 RUN ldconfig
-
-RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc && \
-    echo "source /ros2_ws/install/setup.bash" >> /etc/bash.bashrc

@@ -21,6 +21,7 @@ public:
 private:
     rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_posePhantom_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_haptic_poseTeoRightArm_sub;
+    rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_poseAbbRightArm_sub;
 
     rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cmd_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_mode_pub;
@@ -30,9 +31,9 @@ private:
     std::string robot_selection;
     std::string CARTESIAN_CONTROL_SERVER_NODE_NAME;
 
-    int scale_x;
-    int scale_y;
-    int scale_z;
+    double scale_x;
+    double scale_y;
+    double scale_z;
     bool rotation;
 
     KDL::Frame H_N_robot_0_sensor;
@@ -41,6 +42,7 @@ private:
 
     bool firstHapticOutput {false};
     bool firstTeoOutput {false};
+    bool firstAbbOutput {false};
 
     void selectRobot();
     void publishCartesianCreate();
@@ -50,12 +52,14 @@ private:
 
     void hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
     void teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+    void abbPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg);
 
     void comprobateIntialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
     geometry_msgs::msg::Pose calculateDiferentialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
 
     void hapticInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
     void teoInitialPose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
+    void abbInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg);
 
 };
 

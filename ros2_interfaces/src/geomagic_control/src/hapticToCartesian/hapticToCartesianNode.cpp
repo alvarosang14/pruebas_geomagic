@@ -2,7 +2,7 @@
 #include "geomagic_control/hapticToCartesian/hapticToCartesianNode.h"
 
 #define NODE_NAME "haptic_to_cartesian_node"
-#define HAPTIC_YARP_DEVICE_NODE_NAME ""
+#define HAPTIC_YARP_DEVICE_NODE_NAME "/pepito"
 
 namespace {
     inline void fromMsg(const geometry_msgs::msg::Pose& in, KDL::Frame& out) {
@@ -54,10 +54,10 @@ void HapticToCartesianNode::selectRobot() {
         CARTESIAN_CONTROL_SERVER_NODE_NAME = "cartesian_control_server_ros2";
         RCLCPP_INFO(this->get_logger(), "Selected robot: Teo.");
     } else if (robot_selection == "abb") {
-        CARTESIAN_CONTROL_SERVER_NODE_NAME = "cartesian_control_server_ros2";
-        RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
+        CARTESIAN_CONTROL_SERVER_NODE_NAME = "";
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Abb.");
     } else {
-        RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'teo'.", robot_selection.c_str());
+        RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'abb'.", robot_selection.c_str());
         robot_selection = "abb";
     }
 }
@@ -116,12 +116,11 @@ void HapticToCartesianNode::setParameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
 
     // robot_selection
-    robot_selection = "abb";
     descriptor_msg.name = "robot_selection";
-    descriptor_msg.description = "Robot to control (default: teo).";
+    descriptor_msg.description = "Robot to control (default: abb).";
     descriptor_msg.read_only = true;
     descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING);
-    declare_parameter<std::string>("robot_selection", "teo", descriptor_msg);
+    declare_parameter<std::string>("robot_selection", "abb", descriptor_msg);
     get_parameter("robot_selection", robot_selection);
 
     // scale_x
@@ -204,12 +203,21 @@ void HapticToCartesianNode::hapticSucribeCreate() {
         std::bind(&HapticToCartesianNode::hapticPoseCallback, this, std::placeholders::_1)
     );
 
-    m_haptic_poseTeoRightArm_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose",
-        10,
-        std::bind(&HapticToCartesianNode::teoPoseCallback, this, std::placeholders::_1)
-    );
-
+    if (robot_selection == "teo") {
+        m_haptic_poseTeoRightArm_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose",
+            10,
+            std::bind(&HapticToCartesianNode::teoPoseCallback, this, std::placeholders::_1)
+        );
+    } else if (robot_selection == "abb") {
+        m_haptic_poseAbbRightArm_sub = this->create_subscription<geometry_msgs::msg::Pose>(
+            std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose",
+            10,
+            std::bind(&HapticToCartesianNode::abbPoseCallback, this, std::placeholders::_1)
+        );
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'abb'.", robot_selection.c_str());
+    }
 }
 
 void HapticToCartesianNode::hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
@@ -232,16 +240,26 @@ void HapticToCartesianNode::teoPoseCallback(const geometry_msgs::msg::PoseStampe
                 msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
 }
 
+void HapticToCartesianNode::abbPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    // Recibir pose del dispositivo háptico
+    abbInitialPose(msg);
+
+    // RCLCPP_INFO(this->get_logger(),
+    //             "Received abb Right Arm pose: [%.3f, %.3f, %.3f]",
+    //             msg->position.x, msg->position.y, msg->position.z);
+}
+
 // ------------------------------ Helpers ------------------------------
 void HapticToCartesianNode::comprobateIntialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
-    if (!(firstHapticOutput && firstTeoOutput)) {
+    if (!(firstHapticOutput && firstAbbOutput)) {
         RCLCPP_INFO(this->get_logger(),
-            "Not recibed intial pose of Haptic %d and Teo %d", firstHapticOutput, firstTeoOutput);
+            "Not recibed intial pose of Haptic %d and Abb %d", firstHapticOutput, firstAbbOutput);
         return;
     }
 
     geometry_msgs::msg::Pose cartesian_cmd = calculateDiferentialPose(msg);
-
+    // geometry_msgs::msg::Pose cartesian_cmd;
+    // toMsg(H_0_N_robot_initial, cartesian_cmd);
     m_cmd_pub->publish(cartesian_cmd);
 
     RCLCPP_INFO(this->get_logger(),
@@ -298,6 +316,14 @@ void HapticToCartesianNode::teoInitialPose(const geometry_msgs::msg::PoseStamped
         fromMsg(*msg, H_0_N_robot_initial);
         firstTeoOutput = true;
         RCLCPP_INFO(get_logger(), "Initial teo pose correctly set.");
+    }
+}
+
+void HapticToCartesianNode::abbInitialPose(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    if (!firstAbbOutput) {
+        fromMsg(*msg, H_0_N_robot_initial);
+        firstAbbOutput = true;
+        RCLCPP_INFO(get_logger(), "Initial abb pose correctly set.");
     }
 }
 
