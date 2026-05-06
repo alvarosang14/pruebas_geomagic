@@ -58,7 +58,7 @@ void HapticToCartesianNode::selectRobot() {
         RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
     } else {
         RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'teo'.", robot_selection.c_str());
-        robot_selection = "teo";
+        robot_selection = "abb";
     }
 }
 
@@ -116,7 +116,7 @@ void HapticToCartesianNode::setParameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
 
     // robot_selection
-    robot_selection = "teo";
+    robot_selection = "abb";
     descriptor_msg.name = "robot_selection";
     descriptor_msg.description = "Robot to control (default: teo).";
     descriptor_msg.read_only = true;

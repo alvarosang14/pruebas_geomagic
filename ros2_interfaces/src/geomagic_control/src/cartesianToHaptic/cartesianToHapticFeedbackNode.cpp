@@ -17,6 +17,10 @@ namespace {
 }
 
 CartesianToHapticFeedbackNode::CartesianToHapticFeedbackNode() : Node(NODE_NAME) {
+    setParameters();
+
+    selectRobot();
+
     publishCartesianCreate();
 
     if (!setFeedbackMode()) {
@@ -27,6 +31,32 @@ CartesianToHapticFeedbackNode::CartesianToHapticFeedbackNode() : Node(NODE_NAME)
     hapticSubscribeCreate();
 
     RCLCPP_INFO(this->get_logger(), "Cartesian to Haptic Feedback Node started");
+}
+
+void CartesianToHapticFeedbackNode::selectRobot() {
+    if (robot_selection == "teo") {
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Teo.");
+    } else if (robot_selection == "abb") {
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
+
+    } else if (robot_selection == "abb_test") {
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'teo'.", robot_selection.c_str());
+        robot_selection = "abb";
+    }
+}
+
+void CartesianToHapticFeedbackNode::setParameters() {
+    rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
+
+    // robot_selection
+    descriptor_msg.name = "robot_selection";
+    descriptor_msg.description = "Robot to control (default: teo).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING);
+    declare_parameter<std::string>("robot_selection", "teo", descriptor_msg);
+    get_parameter("robot_selection", robot_selection);
 }
 
 // ------------------------------ Publisher ------------------------------
@@ -64,10 +94,21 @@ bool CartesianToHapticFeedbackNode::setFeedbackMode() {
 
 // ------------------------------ Subscribers ------------------------------
 void CartesianToHapticFeedbackNode::hapticSubscribeCreate() {
-    // Suscribirse a la pose de Teo
-    m_teo_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-        std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose", 10,
-        std::bind(&CartesianToHapticFeedbackNode::teoPoseCallback, this, std::placeholders::_1));
+    if (robot_selection == "teo") {
+        m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+            std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/state/pose", 10,
+            std::bind(&CartesianToHapticFeedbackNode::teoPoseCallback, this, std::placeholders::_1));
+    } else if (robot_selection == "abb") {
+        m_haptic_pose_sub = this->create_subscription<geometry_msgs::msg::Vector3>(
+            "/state/jr3", 10,
+            std::bind(&CartesianToHapticFeedbackNode::abbPoseCallback, this, std::placeholders::_1));
+    } else if (robot_selection == "abb_test") {
+        m_haptic_pose_sub = this->create_subscription<sensor_msgs::msg::JointState>(
+            "/state/jr3_test", 10,
+            std::bind(&CartesianToHapticFeedbackNode::abbTestPoseCallback, this, std::placeholders::_1));
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Unsupported robot selection for haptic feedback: %s", robot_selection.c_str());
+    }
 }
 
 void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
@@ -96,6 +137,16 @@ void CartesianToHapticFeedbackNode::teoPoseCallback(const geometry_msgs::msg::Po
 
         publishHapticFeedback(force);
     }
+}
+
+void CartesianToHapticFeedbackNode::abbPoseCallback(const geometry_msgs::msg::Vector3::SharedPtr msg) {
+    KDL::Vector force(msg->x, msg->y, msg->z);
+    publishHapticFeedback(force);
+}
+
+void CartesianToHapticFeedbackNode::abbTestPoseCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
+    KDL::Vector force(msg->effort[0], msg->effort[1], msg->effort[2]);
+    publishHapticFeedback(force);
 }
 
 void CartesianToHapticFeedbackNode::publishHapticFeedback(const KDL::Vector& force) {
