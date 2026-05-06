@@ -22,19 +22,12 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::Pose>::SharedPtr m_haptic_posePhantom_sub;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_haptic_poseTeoRightArm_sub;
 
-    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cmd_pub;
+    rclcpp::Publisher<geometry_msgs::msg::Pose>::SharedPtr m_cartesian_cmd_pub;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr m_mode_pub;
 
     rclcpp::Client<SetParameters>::SharedPtr client_param_;
 
-    std::string robot_selection;
-    std::string CARTESIAN_CONTROL_SERVER_NODE_NAME;
-
-    int scale_x;
-    int scale_y;
-    int scale_z;
-    bool rotation;
-
+    int scale_;
     KDL::Frame H_N_robot_0_sensor;
     KDL::Frame H_0_N_sensor_initial;
     KDL::Frame H_0_N_robot_initial;
@@ -42,7 +35,6 @@ private:
     bool firstHapticOutput {false};
     bool firstTeoOutput {false};
 
-    void selectRobot();
     void publishCartesianCreate();
     bool setPoseMode();
     void setParameters();

@@ -2,8 +2,7 @@
 #include "geomagic_control/hapticToCartesian/hapticToCartesianNode.h"
 
 #define NODE_NAME "haptic_to_cartesian_node"
-#define CARTESIAN_CONTROL_SERVER_NODE_NAME "cartesian_control_server_ros2"
-#define HAPTIC_YARP_DEVICE_NODE_NAME "haptic_device_ros2"
+#define HAPTIC_YARP_DEVICE_NODE_NAME ""
 
 namespace {
     inline void fromMsg(const geometry_msgs::msg::Pose& in, KDL::Frame& out) {
@@ -28,16 +27,18 @@ namespace {
 }
 
 HapticToCartesianNode::HapticToCartesianNode() : Node(NODE_NAME) {
+    setParameters();
+    
+    selectRobot();
+
     publishCartesianCreate();
 
-    if (!setPoseMode()) {
+    if (robot_selection == "teo" && !setPoseMode()) {
         RCLCPP_ERROR(this->get_logger(),
                 "Fallo en la configuarcion pose");
         return;
     }
-
-    setParameters();
-
+    
     hapticSucribeCreate();
 
     RCLCPP_INFO(this->get_logger(),
@@ -46,9 +47,25 @@ HapticToCartesianNode::HapticToCartesianNode() : Node(NODE_NAME) {
                 "Publishing to: /cartesian_control_server_ros2/command/pose");
 }
 
+// ------------------------------ Robot Selection ------------------------------
+void HapticToCartesianNode::selectRobot() {
+    // For teo
+    if (robot_selection == "teo") {
+        CARTESIAN_CONTROL_SERVER_NODE_NAME = "cartesian_control_server_ros2";
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Teo.");
+    } else if (robot_selection == "abb") {
+        CARTESIAN_CONTROL_SERVER_NODE_NAME = "cartesian_control_server_ros2";
+        RCLCPP_INFO(this->get_logger(), "Selected robot: Other Robot.");
+    } else {
+        RCLCPP_ERROR(this->get_logger(), "Invalid robot selection: %s. Defaulting to 'teo'.", robot_selection.c_str());
+        robot_selection = "teo";
+    }
+}
+
 // ------------------------------ Publisher ------------------------------
 void HapticToCartesianNode::publishCartesianCreate() {
-    m_cartesian_cmd_pub = this->create_publisher<geometry_msgs::msg::Pose>(
+    // For teo
+    m_cmd_pub = this->create_publisher<geometry_msgs::msg::Pose>(
         std::string(CARTESIAN_CONTROL_SERVER_NODE_NAME) + "/command/pose",
         10
     );
@@ -57,6 +74,7 @@ void HapticToCartesianNode::publishCartesianCreate() {
 }
 
 bool HapticToCartesianNode::setPoseMode() {
+    // For teo
     using ServiceResponseFuture = rclcpp::Client<SetParameters>::SharedFuture;
 
     // wait for service
@@ -97,14 +115,50 @@ bool HapticToCartesianNode::setPoseMode() {
 void HapticToCartesianNode::setParameters() {
     rcl_interfaces::msg::ParameterDescriptor descriptor_msg;
 
-    // scale
-    scale_ = 1.0;
-    descriptor_msg.name = "scale";
+    // robot_selection
+    robot_selection = "teo";
+    descriptor_msg.name = "robot_selection";
+    descriptor_msg.description = "Robot to control (default: teo).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_STRING);
+    declare_parameter<std::string>("robot_selection", "teo", descriptor_msg);
+    get_parameter("robot_selection", robot_selection);
+
+    // scale_x
+    scale_x = 1.0;
+    descriptor_msg.name = "scale_x";
     descriptor_msg.description = "Scaling factor to apply to the haptic movements (default: 1.0).";
     descriptor_msg.read_only = true;
     descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE);
-    declare_parameter<double>("scale", 1.0, descriptor_msg);
-    get_parameter("scale", scale_);
+    declare_parameter<double>("scale_x", 1.0, descriptor_msg);
+    get_parameter("scale_x", scale_x);
+
+    // scale_y
+    scale_y = 1.0;
+    descriptor_msg.name = "scale_y";
+    descriptor_msg.description = "Scaling factor to apply to the haptic movements (default: 1.0).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE);
+    declare_parameter<double>("scale_y", 1.0, descriptor_msg);
+    get_parameter("scale_y", scale_y);
+
+    // scale_z
+    scale_z = 1.0;
+    descriptor_msg.name = "scale_z";
+    descriptor_msg.description = "Scaling factor to apply to the haptic movements (default: 1.0).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_DOUBLE);
+    declare_parameter<double>("scale_z", 1.0, descriptor_msg);
+    get_parameter("scale_z", scale_z);
+
+    // rotation 
+    rotation = true;
+    descriptor_msg.name = "rotation";
+    descriptor_msg.description = "Whether to consider the rotation of the haptic device in the transformation (default: true).";
+    descriptor_msg.read_only = true;
+    descriptor_msg.set__type(rcl_interfaces::msg::ParameterType::PARAMETER_BOOL);
+    declare_parameter<bool>("rotation", true, descriptor_msg);
+    get_parameter("rotation", rotation);
 
     // roll
     double roll_N_sensor_ = 0.0;
@@ -188,7 +242,7 @@ void HapticToCartesianNode::comprobateIntialPose(const geometry_msgs::msg::Pose:
 
     geometry_msgs::msg::Pose cartesian_cmd = calculateDiferentialPose(msg);
 
-    m_cartesian_cmd_pub->publish(cartesian_cmd);
+    m_cmd_pub->publish(cartesian_cmd);
 
     RCLCPP_INFO(this->get_logger(),
                 "Published cartesian command: [%.3f, %.3f, %.3f]",
@@ -213,8 +267,8 @@ geometry_msgs::msg::Pose HapticToCartesianNode::calculateDiferentialPose(const g
 
     auto p = H_0_N_robot_initial * (H_N_robot_0_sensor * (Rot_0_N_sensor_initial * H_sensor_initial_current.p));
     
-    //escale??
-    p = KDL::Vector(p.x() * scale_, p.y() * scale_, p.z() * scale_);
+    // escale_x_x_xx
+    p = KDL::Vector(p.x() * scale_x, p.y() * scale_y, p.z() * scale_z);
 
     // transformamos la traslacion con respecto la base del sensor
     // tranformamos el resultado a los mismos ejes de teo
@@ -247,6 +301,7 @@ void HapticToCartesianNode::teoInitialPose(const geometry_msgs::msg::PoseStamped
     }
 }
 
+// ============================== Main ==============================
 int main(int argc, char * argv[]) {
   rclcpp::init(argc, argv);
   rclcpp::spin(std::make_shared<HapticToCartesianNode>());

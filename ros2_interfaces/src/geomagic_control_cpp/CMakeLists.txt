@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(geomagic_control)
+project(geomagic_control_cpp)
 
 if(NOT CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 17)

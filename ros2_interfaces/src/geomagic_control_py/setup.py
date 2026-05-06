@@ -26,8 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'haptic_to_cartesian = geomagic_control_py.haptic_to_cartesian:main',
-            'cartesian_to_haptic = geomagic_control_py.cartesian_to_haptic:main',
-            'full_haptic = geomagic_control_py.full_haptic:main'
+            'cartesian_to_haptic = geomagic_control_py.cartesian_to_haptic:main'
         ],
     },
 )
