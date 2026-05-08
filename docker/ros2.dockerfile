@@ -1,7 +1,11 @@
 FROM osrf/ros:humble-desktop AS builder
 
 # clone the repository
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && apt-get install -y \
+    git \
+    pip
+
+RUN pip install ABBRobotEGM
 
 # Ros2 workspace
 RUN mkdir /ros2_ws
@@ -20,9 +24,10 @@ RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
 
 FROM osrf/ros:humble-desktop AS final
 
-# Build the workspace
 COPY --from=builder /ros2_ws /ros2_ws
+COPY --from=builder /usr/local/lib/python3.10/dist-packages /usr/local/lib/python3.10/dist-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
 WORKDIR /ros2_ws
 
-# Entrypoint
-ENTRYPOINT ["source", "/ros2_ws/install/setup.bash"]
+RUN sed -i '/^exec "\$@"/i source /ros2_ws/install/setup.bash' /ros_entrypoint.sh

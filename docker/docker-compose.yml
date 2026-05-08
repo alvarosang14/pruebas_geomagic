@@ -1,6 +1,7 @@
 services:
     touch_device:
-        image: touch.dockerfile
+        image: touch
+        build: ./touch.dockerfile
         container_name: touch_device
         environment:
             - DISPLAY=$DISPLAY
@@ -10,13 +11,15 @@ services:
         network_mode: "host"
 
     yarp_server:
-        image: yarp.dockerfile
+        image: yarp
+        build: ./yarp.dockerfile
         container_name: yarp_server
         command: "yarpserver --write"
         network_mode: "host"
 
     yarp_geomagic:
-        image: yarp.dockerfile
+        image: yarp
+        build: ./yarp.dockerfile
         container_name: yarp_geomagic
         command: "yarpdev --device deviceBundler --attached_device geomagicdriver --wrapper_device hapticdevicewrapper"
         network_mode: "host"
@@ -24,7 +27,8 @@ services:
             - yarp_server
     
     yarp_geomagic_ros2:
-        build: yarp.dockerfile
+        image: yarp
+        build: ./yarp.dockerfile
         container_name: yarp_geomagic_ros2
         command: "yarpdev --device deviceBundler --attached_device geomagicdriver --wrapper_device hapticDevice_nws_ros2 --topic_name haptic_device"        
         network_mode: "host"
@@ -32,7 +36,8 @@ services:
             - yarp_server
 
     node_abb:
-        build: ros2.dockerfile
+        image: ros2
+        build: ./ros2.dockerfile
         container_name: node_abb
         command: ros2 run abb_egm_driver egm_driver --ros-args -p smooth_factor:=0.8
         network_mode: "host"
@@ -40,7 +45,8 @@ services:
             - yarp_geomagic_ros2
     
     node_geomagic:
-        build: ros2.dockerfile
+        image: ros2
+        build: ./ros2.dockerfile
         container_name: node_geomagic
         command: "ros2 run geomagic_control haptic_to_cartesian --ros-args -p roll_N_sensor:=-1.57 -p yow_N_sensor:=-1.57"
         network_mode: "host"
@@ -48,15 +54,17 @@ services:
             - node_abb
     
     node_jr3:
-        build: ros2.dockerfile
+        image: ros2
+        build: ./ros2.dockerfile
         container_name: node_jr3
-        command: "ros2 run jr3_driver jr3_driver_node --ros-args -p port:=/dev/ttyUSB0"
+        command: "ros2 run jr3_driver jr3_driver --ros-args -p channel:=/dev/ttyACM0"
         network_mode: "host"
         depends_on:
             - node_abb
     
     node_jr3_abb:
-        build: ros2.dockerfile
+        image: ros2
+        build: ./ros2.dockerfile
         container_name: node_jr3_abb
         volumes:
             - /dev:/dev
