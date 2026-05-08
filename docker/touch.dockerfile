@@ -1,9 +1,6 @@
 FROM osrf/ros:humble-desktop AS builder
 
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    git \
     udev \
     wget 
 
@@ -42,8 +39,7 @@ RUN cd openhaptics_3.4-0-developer-edition-amd64 && \
 FROM osrf/ros:humble-desktop AS final
 
 RUN apt-get update && apt-get install -y \
-    udev \
-    ros-humble-test-msgs 
+    udev 
 
 COPY --from=builder /usr/ /usr/
 COPY --from=builder /etc /etc
