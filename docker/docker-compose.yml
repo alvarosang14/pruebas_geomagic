@@ -58,6 +58,8 @@ services:
     node_jr3_abb:
         build: ros2.dockerfile
         container_name: node_jr3_abb
+        volumes:
+            - /dev:/dev
         command: "ros2 run geomagic_control cartesian_to_haptic"
         network_mode: "host"
         depends_on:

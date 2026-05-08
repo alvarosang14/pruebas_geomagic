@@ -1,69 +1,68 @@
-FROM osrf/ros:humble-desktop AS builder
+FROM touch:latest AS builder
 
-RUN apt-get update && apt-get install -y \
+# Compiladores + headers para linkar contra OpenHaptics y deps de ROS
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
     git \
-    udev \
+    ca-certificates \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    freeglut3-dev \
+    libusb-1.0-0-dev \
     ros-humble-test-msgs \
-    wget 
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /repos
 
-# Geomagic Touch Driver
-RUN  wget https://s3.us-east-1.amazonaws.com/dl.3dsystems.com/binaries/support/downloads/Sensable/3DS/TouchDriver_2025_12_10+1.tgz
-RUN wget https://s3.amazonaws.com/dl.3dsystems.com/binaries/support/downloads/KB+Files/Open+Haptics/openhaptics_3.4-0-developer-edition-amd64.tar.gz
-   
-RUN tar -xvzf /repos/TouchDriver_2025_12_10+1.tgz
-RUN cd TouchDriver_2025_12_10 && \
-    cp ./usr/lib/libPhantomIOLib42.so /usr/lib/libPhantomIOLib42.so && \
-    cp ./usr/lib/libPhantomManagerLite.so /usr/lib/libPhantomManagerLite.so && \
-    cp ./rules.d/*.rules /etc/udev/rules.d/ && \
-    ldconfig
+RUN git clone --branch v0.18.4          https://github.com/robotology/ycm-cmake-modules.git \
+    && git clone --branch yarp-3.12     https://github.com/robotology/yarp.git \
+    && git clone --branch master        https://github.com/robotology/yarp-devices-haptic.git \
+    && git clone --branch master        https://github.com/robotology/yarp-devices-ros2.git
 
-RUN cd TouchDriver_2025_12_10 && \
-    cp -r ./bin/* /usr/bin/
+# YCM
+RUN cd /repos/ycm-cmake-modules \
+    && mkdir build && cd build \
+    && cmake .. \
+    && cmake --build . -j$(nproc) \
+    && cmake --install .
 
-RUN tar -xvzf /repos/openhaptics_3.4-0-developer-edition-amd64.tar.gz
-RUN cd openhaptics_3.4-0-developer-edition-amd64 && \
-    chmod +x install && \
-    printf "y\nq\n" | ./install && \
-    ldconfig
+# YARP core
+RUN cd /repos/yarp \
+    && mkdir build && cd build \
+    && cmake .. -DSKIP_ACE=ON \
+    && cmake --build . -j$(nproc) \
+    && cmake --install . \
+    && ldconfig
 
-# YARP
-RUN git clone --branch v0.18.4      https://github.com/robotology/ycm-cmake-modules.git
-RUN git clone --branch yarp-3.12    https://github.com/robotology/yarp.git
-RUN git clone --branch master       https://github.com/robotology/yarp-devices-haptic.git
-RUN git clone --branch master       https://github.com/robotology/yarp-devices-ros2.git
+# yarp-devices-haptic con driver Geomagic
+RUN cd /repos/yarp-devices-haptic \
+    && mkdir build && cd build \
+    && cmake .. -DENABLE_GEOMAGIC=ON \
+    && make -j$(nproc) \
+    && make install \
+    && ldconfig
 
-# - Build YCM
-WORKDIR /repos/ycm-cmake-modules
-RUN mkdir build && cd build && cmake .. && make -j$(nproc) && make install
+# yarp-devices-ros2 (necesita ROS sourced)
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+        cd /repos/yarp-devices-ros2 && \
+        mkdir build && cd build && \
+        cmake .. && \
+        make -j$(nproc) && \
+        make install" \
+    && ldconfig
 
-# - Build YARP
-WORKDIR /repos/yarp
-RUN mkdir build && cd build && cmake -DSKIP_ACE=ON .. && make -j$(nproc) && make install
+FROM touch:latest AS final
 
-# - Build YARP devices
-WORKDIR /repos/yarp-devices-haptic
-RUN mkdir build && cd build && cmake -DENABLE_geomagicdriver=ON .. && make -j$(nproc) && make install
+# Únicas deps runtime que NO vienen ya en la base
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-test-msgs \
+    && rm -rf /var/lib/apt/lists/*
 
-# - Build YARP devices ROS2
-WORKDIR /repos/yarp-devices-ros2
-RUN mkdir build && cd build && \
-    /bin/bash -c "source /opt/ros/humble/setup.bash && cmake .. && make -j$(nproc) && make install"
+COPY --from=builder /usr/local/ /usr/local/
 
-FROM osrf/ros:humble-desktop AS final
+RUN ldconfig \
+    && echo "source /opt/ros/humble/setup.bash"  >> /etc/bash.bashrc \
+    && echo "source /ros2_ws/install/setup.bash" >> /etc/bash.bashrc
 
-RUN apt-get update && apt-get install -y \
-    udev \
-    ros-humble-test-msgs 
-
-COPY --from=builder /usr/ /usr/
-COPY --from=builder /etc /etc
-COPY --from=builder /opt /opt
-
-RUN ldconfig
-
-RUN echo "source /opt/ros/humble/setup.bash" >> /etc/bash.bashrc && \
-    echo "source /ros2_ws/install/setup.bash" >> /etc/bash.bashrc
+WORKDIR /ros2_ws

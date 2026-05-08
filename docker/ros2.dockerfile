@@ -8,12 +8,15 @@ RUN mkdir /ros2_ws
 WORKDIR /ros2_ws
 
 # Install dependencies
-RUN git clone --branch master https://github.com/roboticslab-uc3m/abb_egm_driver.git /ros2_ws/src
+RUN git clone --branch master https://github.com/roboticslab-uc3m/abb_egm_driver.git /ros2_ws/src/abb_egm_driver
+RUN git clone --branch master https://github.com/roboticslab-uc3m/jr3_driver.git     /ros2_ws/src/jr3_driver
 RUN git clone --branch main https://github.com/alvarosang14/pruebas_geomagic.git /tmp/pruebas_geomagic
 RUN cp -r /tmp/pruebas_geomagic/ros2_interfaces /ros2_ws/src/
 RUN rm -rf /tmp/pruebas_geomagic
 
-RUN cd /ros2_ws && colcon build 
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+                  cd /ros2_ws && \
+                  colcon build --symlink-install"
 
 FROM osrf/ros:humble-desktop AS final
 

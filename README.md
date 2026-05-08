@@ -3,6 +3,16 @@ Programa para probar el uso ihaptic de yarp -> device geomagic -> hd/hl phantom
 
 Qt: sudo apt install qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
 
+# Configuration
+/etc/udev/rules.d/1'-mbed.rules                          
+
+───────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+       │ File: 10-mbed.rules
+───────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   1   │ SUBSYSTEM=="tty", ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="0666", SYMLINK+="ttyLPC1768", GROUP="plugdev"
+   2   │ SUBSYSTEM=="usb", ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="0666
+───────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
 # For Docker
 xhost +local:root
 
