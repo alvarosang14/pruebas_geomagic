@@ -17,22 +17,29 @@ find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(orocos_kdl REQUIRED)
 
-add_executable(haptic_to_cartesian
-  src/hapticToCartesian/hapticToCartesianNode.cpp
-)
-target_include_directories(haptic_to_cartesian PUBLIC include)
-ament_target_dependencies(haptic_to_cartesian
-  rclcpp
-  geometry_msgs
-  std_msgs
-  orocos_kdl
+add_executable(cartesian_to_haptic_abb
+  src/cartesianToHaptic/cartesianToHaptic_abb.cpp
+  src/cartesianToHaptic/baseNode/cartesianToHaptic_baseNode.cpp
 )
 
-add_executable(cartesian_to_haptic
-  src/cartesianToHaptic/cartesianToHapticFeedbackNode.cpp
+add_executable(cartesian_to_haptic_teo
+  src/cartesianToHaptic/cartesianToHaptic_teo.cpp
+  src/cartesianToHaptic/baseNode/cartesianToHaptic_baseNode.cpp
 )
-target_include_directories(cartesian_to_haptic PUBLIC include)
-ament_target_dependencies(cartesian_to_haptic
+
+add_executable(haptic_to_cartesian_abb
+  src/hapticToCartesian/hapticToCartesian_abb.cpp
+  src/hapticToCartesian/baseNode/hapticToCartesian_baseNode.cpp
+)
+
+add_executable(haptic_to_cartesian_teo
+  src/hapticToCartesian/hapticToCartesian_teo.cpp
+  src/hapticToCartesian/baseNode/hapticToCartesian_baseNode.cpp
+)
+
+target_include_directories(cartesian_to_haptic_teo PUBLIC include)
+target_include_directories(cartesian_to_haptic_teo PRIVATE include_priv)
+ament_target_dependencies(cartesian_to_haptic_teo
   rclcpp
   geometry_msgs
   std_msgs
@@ -41,8 +48,52 @@ ament_target_dependencies(cartesian_to_haptic
   sensor_msgs
 )
 
-install(TARGETS haptic_to_cartesian
-  cartesian_to_haptic
+target_include_directories(cartesian_to_haptic_abb PUBLIC include)
+target_include_directories(cartesian_to_haptic_abb PRIVATE include_priv)
+ament_target_dependencies(cartesian_to_haptic_abb
+  rclcpp
+  geometry_msgs
+  std_msgs
+  std_srvs
+  orocos_kdl
+  sensor_msgs
+)
+
+target_include_directories(haptic_to_cartesian_teo PUBLIC include)
+target_include_directories(haptic_to_cartesian_teo PRIVATE include_priv)
+ament_target_dependencies(haptic_to_cartesian_teo
+  rclcpp
+  geometry_msgs
+  std_msgs
+  std_srvs
+  orocos_kdl
+  sensor_msgs
+)
+
+target_include_directories(haptic_to_cartesian_abb PUBLIC include)
+target_include_directories(haptic_to_cartesian_abb PRIVATE include_priv)
+ament_target_dependencies(haptic_to_cartesian_abb
+  rclcpp
+  geometry_msgs
+  std_msgs
+  std_srvs
+  orocos_kdl
+  sensor_msgs
+)
+
+install(TARGETS cartesian_to_haptic_abb
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS cartesian_to_haptic_teo
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS haptic_to_cartesian_abb
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS haptic_to_cartesian_teo
   DESTINATION lib/${PROJECT_NAME}
 )
 
