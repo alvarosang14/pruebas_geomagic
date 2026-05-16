@@ -81,6 +81,10 @@ void HapticToCartesianTeo::teoPoseCallback(const geometry_msgs::msg::PoseStamped
                 msg->pose.position.x, msg->pose.position.y, msg->pose.position.z);
 }
 
+void HapticToCartesianTeo::publishDoCommand(bool do_command) {
+    RCLCPP_WARN(this->get_logger(), "publishDoCommand not implemented for Teo (do_command=%d)", do_command);
+}
+
 // ============================== Main ==============================
 int main(int argc, char * argv[]) {
     rclcpp::init(argc, argv);

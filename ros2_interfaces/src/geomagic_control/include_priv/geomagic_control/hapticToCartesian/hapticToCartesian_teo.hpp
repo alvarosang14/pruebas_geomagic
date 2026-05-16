@@ -21,6 +21,7 @@ public:
 
     void publishHapticCreate() override;
     void subscribeHapticCreate() override;
+    void publishDoCommand(bool do_command) override;
 
 private:
     bool setPoseMode();

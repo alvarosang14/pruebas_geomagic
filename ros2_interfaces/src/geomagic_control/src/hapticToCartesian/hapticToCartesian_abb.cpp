@@ -16,6 +16,11 @@ void HapticToCartesianAbb::publishHapticCreate() {
         "/command/pose",
         10
     );
+
+    m_handle_cmd_pub = this->create_publisher<std_msgs::msg::Bool>(
+        "/command/do",
+        10
+    );
 }
 
 // ------------------------------ Subscriber ------------------------------
@@ -38,6 +43,12 @@ void HapticToCartesianAbb::abbPoseCallback(const geometry_msgs::msg::Pose::Share
         firstRobotOutput = true;
         RCLCPP_INFO(get_logger(), "Initial abb pose correctly set.");
     }
+}
+
+void HapticToCartesianAbb::publishDoCommand(bool do_command) {
+    std_msgs::msg::Bool msg;
+    msg.data = do_command;
+    m_handle_cmd_pub->publish(msg);
 }
 
 // ============================== Main ==============================

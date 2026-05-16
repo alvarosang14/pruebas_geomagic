@@ -82,9 +82,40 @@ void HapticToCartesianBaseNode::hapticSucribeCreate() {
         10,
         std::bind(&HapticToCartesianBaseNode::hapticPoseCallback, this, std::placeholders::_1)
     );
+
+    m_haptic_button1_sub = this->create_subscription<std_msgs::msg::Int32MultiArray>(
+        HAPTIC_YARP_DEVICE_NODE_NAME + "/state/button1",
+        10,
+        std::bind(&HapticToCartesianBaseNode::button1Callback, this, std::placeholders::_1)
+    );
+}
+
+void HapticToCartesianBaseNode::button1Callback(const std_msgs::msg::Int32MultiArray::SharedPtr msg) {
+    if (!msg->data.empty() && msg->data[0] == 1) {
+        RCLCPP_INFO(this->get_logger(), "Button 1 pressed. Resetting initial poses.");
+
+        button1_pressed = !button1_pressed;
+
+        firstHapticOutput = false;
+        firstRobotOutput = false;
+
+        H_0_N_sensor_initial = KDL::Frame::Identity();
+        H_0_N_robot_initial = KDL::Frame::Identity();
+    }
+
+    if (msg->data.size() > 1 && msg->data[1] == 1) {
+        RCLCPP_INFO(this->get_logger(), "Button 2 pressed. Resetting initial robot pose.");
+
+        publishDoCommand(true);
+    }
 }
 
 void HapticToCartesianBaseNode::hapticPoseCallback(const geometry_msgs::msg::Pose::SharedPtr msg) {
+    if (!firstRobotOutput) {
+        RCLCPP_INFO(this->get_logger(), "Waiting for initial robot pose...");
+        return;
+    }
+
     if (!firstHapticOutput) {
         fromMsg(*msg, H_0_N_sensor_initial);
         firstHapticOutput = true;

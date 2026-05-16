@@ -9,6 +9,7 @@ public:
     IHapticToCartesian(const std::string & node_name) : rclcpp::Node(node_name) {}
     virtual ~IHapticToCartesian() = default;
     virtual void subscribeHapticCreate() = 0;
+    virtual void publishDoCommand(bool do_command) = 0;
 };
 
 class IHapticToCartesianBaseNode : public IHapticToCartesian {
